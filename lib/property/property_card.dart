@@ -1,5 +1,4 @@
 import 'package:estatex_app/services/comparison_service.dart';
-import 'package:estatex_app/services/favorite_services.dart';
 import 'package:estatex_app/services/saved_service.dart';
 import 'package:flutter/material.dart';
 
@@ -53,8 +52,15 @@ class PropertyCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Image.network(
-                    imageUrl,
+                  imageUrl.isEmpty
+                      ? Container(
+                          height: 140,
+                          width: double.infinity,
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.home_work_outlined, size: 48, color: Colors.grey),
+                        )
+                      : Image.network(
+                          imageUrl,
                     height: 140,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -167,8 +173,6 @@ class _FavoriteIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final favoriteService = FavoriteService();
-
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
