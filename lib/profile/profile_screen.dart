@@ -2,13 +2,9 @@ import 'package:estatex_app/admin/admin_screen.dart';
 import 'package:estatex_app/auth/phone_login_screen.dart';
 import 'package:estatex_app/property/my_properties_screen.dart';
 import 'package:estatex_app/profile/widgets/capability_card.dart';
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
 import 'package:estatex_app/screens/broker_crm_dashboard_screen.dart';
 import 'package:estatex_app/screens/broker_deals_screen.dart';
 import 'package:estatex_app/screens/co_broker_screen.dart';
-=======
-import 'package:estatex_app/screens/broker_deals_screen.dart';
->>>>>>> main
 import 'package:estatex_app/screens/broker_escrow_screen.dart';
 import 'package:estatex_app/screens/broker_leads_screen.dart';
 import 'package:estatex_app/screens/buyer_deals_screen.dart';
@@ -36,9 +32,12 @@ class ProfileScreen extends StatelessWidget {
         }
 
         if (user == null) {
-          return const Scaffold(body: Center(child: Text('User not logged in')));
+          return const Scaffold(
+            body: Center(child: Text('User not logged in')),
+          );
         }
 
+        /// TEMP FLAGS (Replace with Firestore later)
         const String kycStatus = 'unverified';
         const bool canUploadProperty = true;
         const bool canHostLiveTour = false;
@@ -49,6 +48,7 @@ class ProfileScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              /// User Info Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -78,34 +78,41 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
+
               const SizedBox(height: 16),
+
+              /// Verification
               VerificationCard(
                 status: kycStatus,
                 onVerify: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Verification flow coming soon')),
+                    const SnackBar(
+                      content: Text('Verification flow coming soon'),
+                    ),
                   );
                 },
               ),
+
               const SizedBox(height: 18),
+
+              /// Capabilities
               const Text(
                 'Capabilities',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
+
               CapabilityTile(
                 title: 'Upload Property',
                 enabled: canUploadProperty,
                 onUnlock: () {},
               ),
+
               CapabilityTile(
                 title: 'Host Live Tour',
                 enabled: canHostLiveTour,
                 onUnlock: () {},
               ),
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
-=======
 
->>>>>>> main
               CapabilityTile(
                 title: 'Professional Listing',
                 enabled: isProfessional,
@@ -115,79 +122,15 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
-              const SizedBox(height: 12),
-=======
 
               const SizedBox(height: 20),
               const Divider(),
 
               /// Quick Access
->>>>>>> main
               const Text(
                 'Quick Access',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
-              _navTile(context, Icons.home_work_outlined, 'My Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyPropertiesScreen()),
-                );
-              }),
-              _navTile(context, Icons.local_offer_outlined, 'My Offers', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BuyerDealsScreen()),
-                );
-              }),
-              _navTile(context, Icons.handshake_outlined, 'Broker Deals', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerDealsScreen()),
-                );
-              }),
-              _navTile(context, Icons.leaderboard_outlined, 'Broker Leads', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerLeadsScreen()),
-                );
-              }),
-              _navTile(context, Icons.analytics_outlined, 'CRM Dashboard', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerCrmDashboardScreen()),
-                );
-              }),
-              _navTile(context, Icons.groups_2_outlined, 'Co-broker Collaboration', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CoBrokerScreen()),
-                );
-              }),
-              _navTile(context, Icons.account_balance_wallet_outlined,
-                  'Broker Escrow', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerEscrowScreen()),
-                );
-              }),
-              _navTile(context, Icons.favorite, 'Saved Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SavedPropertiesScreen(),
-                  ),
-                );
-              }),
-              _navTile(context, Icons.compare, 'Compare Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CompareScreen()),
-                );
-              }),
-              const Divider(height: 32),
-=======
 
               _navTile(
                 context,
@@ -215,6 +158,18 @@ class ProfileScreen extends StatelessWidget {
               ),
               _navTile(
                 context,
+                Icons.analytics_outlined,
+                'CRM Dashboard',
+                const BrokerCrmDashboardScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.groups_2_outlined,
+                'Co-broker Collaboration',
+                const CoBrokerScreen(),
+              ),
+              _navTile(
+                context,
                 Icons.account_balance_wallet_outlined,
                 'Broker Escrow',
                 const BrokerEscrowScreen(),
@@ -235,7 +190,7 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 10),
               const Divider(),
 
->>>>>>> main
+              /// Admin Panel
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -245,10 +200,8 @@ class ProfileScreen extends StatelessWidget {
                 },
                 child: const Text('Open Admin Panel'),
               ),
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
-=======
 
->>>>>>> main
+              /// Logout
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
@@ -272,11 +225,7 @@ class ProfileScreen extends StatelessWidget {
     BuildContext context,
     IconData icon,
     String title,
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
-    VoidCallback onTap,
-=======
     Widget screen,
->>>>>>> main
   ) {
     return Card(
       elevation: 0,
@@ -285,13 +234,9 @@ class ProfileScreen extends StatelessWidget {
         leading: Icon(icon, color: const Color(0xFF1D4ED8)),
         title: Text(title),
         trailing: const Icon(Icons.chevron_right),
-<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
-        onTap: onTap,
-=======
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
         },
->>>>>>> main
       ),
     );
   }
