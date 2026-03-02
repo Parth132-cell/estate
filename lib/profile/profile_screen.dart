@@ -8,6 +8,7 @@ import 'package:estatex_app/screens/broker_crm_dashboard_screen.dart';
 import 'package:estatex_app/screens/broker_deals_screen.dart';
 import 'package:estatex_app/screens/co_broker_screen.dart';
 import 'package:estatex_app/screens/live_tour_screen.dart';
+import 'package:estatex_app/screens/negotiation_assistant_screen.dart';
 import 'package:estatex_app/screens/broker_escrow_screen.dart';
 import 'package:estatex_app/screens/broker_leads_screen.dart';
 import 'package:estatex_app/screens/buyer_deals_screen.dart';
@@ -161,6 +162,12 @@ class ProfileScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const AiRecommendationsScreen()),
+                );
+              }),
+              _navTile(context, Icons.support_agent_outlined, 'Negotiation Assistant', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NegotiationAssistantScreen()),
                 );
               }),
               _navTile(context, Icons.view_in_ar_outlined, 'AR Preview', () {
