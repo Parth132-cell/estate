@@ -96,6 +96,7 @@ class ProfileScreen extends StatelessWidget {
                 enabled: canHostLiveTour,
                 onUnlock: () {},
               ),
+
               CapabilityTile(
                 title: 'Professional Listing',
                 enabled: isProfessional,
@@ -105,57 +106,62 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 20),
+              const Divider(),
+
+              /// Quick Access
               const Text(
                 'Quick Access',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              _navTile(context, Icons.home_work_outlined, 'My Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyPropertiesScreen()),
-                );
-              }),
-              _navTile(context, Icons.local_offer_outlined, 'My Offers', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BuyerDealsScreen()),
-                );
-              }),
-              _navTile(context, Icons.handshake_outlined, 'Broker Deals', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerDealsScreen()),
-                );
-              }),
-              _navTile(context, Icons.leaderboard_outlined, 'Broker Leads', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerLeadsScreen()),
-                );
-              }),
-              _navTile(context, Icons.account_balance_wallet_outlined,
-                  'Broker Escrow', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerEscrowScreen()),
-                );
-              }),
-              _navTile(context, Icons.favorite, 'Saved Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SavedPropertiesScreen(),
-                  ),
-                );
-              }),
-              _navTile(context, Icons.compare, 'Compare Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CompareScreen()),
-                );
-              }),
-              const Divider(height: 32),
+
+              _navTile(
+                context,
+                Icons.home_work_outlined,
+                'My Properties',
+                const MyPropertiesScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.local_offer_outlined,
+                'My Offers',
+                const BuyerDealsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.handshake_outlined,
+                'Broker Deals',
+                const BrokerDealsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.leaderboard_outlined,
+                'Broker Leads',
+                const BrokerLeadsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.account_balance_wallet_outlined,
+                'Broker Escrow',
+                const BrokerEscrowScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.favorite,
+                'Saved Properties',
+                const SavedPropertiesScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.compare,
+                'Compare Properties',
+                const CompareScreen(),
+              ),
+
+              const SizedBox(height: 10),
+              const Divider(),
+
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -165,6 +171,7 @@ class ProfileScreen extends StatelessWidget {
                 },
                 child: const Text('Open Admin Panel'),
               ),
+
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
@@ -188,7 +195,7 @@ class ProfileScreen extends StatelessWidget {
     BuildContext context,
     IconData icon,
     String title,
-    VoidCallback onTap,
+    Widget screen,
   ) {
     return Card(
       elevation: 0,
@@ -197,7 +204,9 @@ class ProfileScreen extends StatelessWidget {
         leading: Icon(icon, color: const Color(0xFF1D4ED8)),
         title: Text(title),
         trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+        },
       ),
     );
   }
