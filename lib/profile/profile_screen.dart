@@ -30,9 +30,12 @@ class ProfileScreen extends StatelessWidget {
         }
 
         if (user == null) {
-          return const Scaffold(body: Center(child: Text('User not logged in')));
+          return const Scaffold(
+            body: Center(child: Text('User not logged in')),
+          );
         }
 
+        /// TEMP FLAGS (Replace with Firestore later)
         const String kycStatus = 'unverified';
         const bool canUploadProperty = true;
         const bool canHostLiveTour = false;
@@ -43,6 +46,7 @@ class ProfileScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              /// User Info Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -50,87 +54,6 @@ class ProfileScreen extends StatelessWidget {
                   gradient: const LinearGradient(
                     colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                   ),
-        /// 🔧 TEMP USER FLAGS
-    /// Replace with Firestore later
-    const String kycStatus = 'unverified';
-    const bool canUploadProperty = true;
-    const bool canHostLiveTour = false;
-    const bool isProfessional = false;
-
-        return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          /// 👤 User Info
-          Text(
-            user.phoneNumber ?? 'User',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 24),
-
-          /// 🔐 Verification
-          VerificationCard(
-            status: kycStatus,
-            onVerify: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Verification flow coming soon')),
-              );
-            },
-          ),
-
-          const SizedBox(height: 32),
-
-          /// ⚙️ Capabilities
-          const Text(
-            'Capabilities',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
-          CapabilityTile(
-            title: 'Upload Property',
-            enabled: canUploadProperty,
-            onUnlock: () {},
-          ),
-
-          CapabilityTile(
-            title: 'Host Live Tour',
-            enabled: canHostLiveTour,
-            onUnlock: () {},
-          ),
-
-          CapabilityTile(
-            title: 'Professional Listing',
-            enabled: isProfessional,
-            onUnlock: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Upgrade to Professional')),
-              );
-            },
-          ),
-
-          const Divider(height: 40),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminScreen()),
-              );
-            },
-            child: const Text('Open Admin Panel'),
-          ),
-
-          /// ❤️ Saved properties
-          ListTile(
-            leading: const Icon(Icons.favorite),
-            title: const Text('Saved Properties'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SavedPropertiesScreen(),
                 ),
                 child: Row(
                   children: [
@@ -153,30 +76,39 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 20),
+
+              /// Verification
               VerificationCard(
                 status: kycStatus,
                 onVerify: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Verification flow coming soon')),
+                    const SnackBar(content: Text('Verification coming soon')),
                   );
                 },
               ),
-              const SizedBox(height: 18),
+
+              const SizedBox(height: 20),
+
+              /// Capabilities
               const Text(
                 'Capabilities',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
+
               CapabilityTile(
                 title: 'Upload Property',
                 enabled: canUploadProperty,
                 onUnlock: () {},
               ),
+
               CapabilityTile(
                 title: 'Host Live Tour',
                 enabled: canHostLiveTour,
                 onUnlock: () {},
               ),
+
               CapabilityTile(
                 title: 'Professional Listing',
                 enabled: isProfessional,
@@ -186,57 +118,62 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 20),
+              const Divider(),
+
+              /// Quick Access
               const Text(
                 'Quick Access',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              _navTile(context, Icons.home_work_outlined, 'My Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyPropertiesScreen()),
-                );
-              }),
-              _navTile(context, Icons.local_offer_outlined, 'My Offers', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BuyerDealsScreen()),
-                );
-              }),
-              _navTile(context, Icons.handshake_outlined, 'Broker Deals', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerDealsScreen()),
-                );
-              }),
-              _navTile(context, Icons.leaderboard_outlined, 'Broker Leads', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerLeadsScreen()),
-                );
-              }),
-              _navTile(context, Icons.account_balance_wallet_outlined,
-                  'Broker Escrow', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrokerEscrowScreen()),
-                );
-              }),
-              _navTile(context, Icons.favorite, 'Saved Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SavedPropertiesScreen(),
-                  ),
-                );
-              }),
-              _navTile(context, Icons.compare, 'Compare Properties', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CompareScreen()),
-                );
-              }),
-              const Divider(height: 32),
+
+              _navTile(
+                context,
+                Icons.home_work_outlined,
+                'My Properties',
+                const MyPropertiesScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.local_offer_outlined,
+                'My Offers',
+                const BuyerDealsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.handshake_outlined,
+                'Broker Deals',
+                const BrokerDealsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.leaderboard_outlined,
+                'Broker Leads',
+                const BrokerLeadsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.account_balance_wallet_outlined,
+                'Broker Escrow',
+                const BrokerEscrowScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.favorite,
+                'Saved Properties',
+                const SavedPropertiesScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.compare,
+                'Compare Properties',
+                const CompareScreen(),
+              ),
+
+              const SizedBox(height: 10),
+              const Divider(),
+
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -246,6 +183,7 @@ class ProfileScreen extends StatelessWidget {
                 },
                 child: const Text('Open Admin Panel'),
               ),
+
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
@@ -269,7 +207,7 @@ class ProfileScreen extends StatelessWidget {
     BuildContext context,
     IconData icon,
     String title,
-    VoidCallback onTap,
+    Widget screen,
   ) {
     return Card(
       elevation: 0,
@@ -278,10 +216,10 @@ class ProfileScreen extends StatelessWidget {
         leading: Icon(icon, color: const Color(0xFF1D4ED8)),
         title: Text(title),
         trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+        },
       ),
-        );
-      },
     );
   }
 }
