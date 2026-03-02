@@ -254,7 +254,7 @@ class _PropertyItem extends StatelessWidget {
 
     return PropertyCard(
       propertyId: propertyId,
-      imageUrl: images.isNotEmpty ? images[0] : '',
+      imageUrl: images.isNotEmpty ? images[0].toString() : '',
       price: '₹${data['price']}',
       title: data['title'],
       location: data['city'],
@@ -266,12 +266,13 @@ class _PropertyItem extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) => PropertyDetailsScreen(
               propertyId: propertyId,
-              imageUrl: images.isNotEmpty ? images[0] : '',
+              imageUrl: images.isNotEmpty ? images[0].toString() : '',
               price: '₹${data['price']}',
               title: data['title'],
               location: data['city'],
               bhk: '${data['bhk']} BHK',
               brokerId: data['uploadedBy'],
+              imageUrls: images.map((e) => e.toString()).toList(),
               verified: true,
             ),
           ),

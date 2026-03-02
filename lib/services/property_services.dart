@@ -30,6 +30,10 @@ class PropertyService {
       images: images,
     );
 
+    if (imageUrls.isEmpty) {
+      throw Exception('Image upload failed. No image URLs were created');
+    }
+
     // 2️⃣ Create property with image urls
     await docRef.set({
       'title': title,
