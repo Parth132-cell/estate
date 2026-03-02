@@ -13,20 +13,29 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
 
-    if (user == null) {
-      return const Scaffold(body: Center(child: Text('User not logged in')));
-    }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    /// 🔧 TEMP USER FLAGS
+        if (user == null) {
+          return const Scaffold(body: Center(child: Text('User not logged in')));
+        }
+
+        /// 🔧 TEMP USER FLAGS
     /// Replace with Firestore later
     const String kycStatus = 'unverified';
     const bool canUploadProperty = true;
     const bool canHostLiveTour = false;
     const bool isProfessional = false;
 
-    return Scaffold(
+        return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -151,6 +160,8 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
+        );
+      },
     );
   }
 }

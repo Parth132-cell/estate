@@ -148,6 +148,13 @@ class AuthController extends StateNotifier<AuthState> {
 
   AuthController(this.ref) : super(AuthState());
 
+  bool _isPermissionDenied(Object error) {
+    if (error is FirebaseException) {
+      return error.code == 'permission-denied';
+    }
+    return error.toString().contains('permission-denied');
+  }
+
   /// SEND OTP
   Future<void> sendOtp({
     required String phone,
@@ -202,31 +209,36 @@ class AuthController extends StateNotifier<AuthState> {
 
       final userRef = _db.collection('users').doc(user.uid);
 
-      // 3. Use a Try-Catch specifically for the Firestore call
-      DocumentSnapshot doc;
+      // 3. Try Firestore sync, but do not fail OTP verification if permissions
+      // are currently blocked by backend rules.
       try {
-        doc = await userRef.get();
+        final doc = await userRef.get();
+        if (!doc.exists) {
+          await userRef.set({
+            'phone': user.phoneNumber,
+            'profileType': 'individual',
+            'kycStatus': 'not_submitted',
+            'isVerified': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        final freshDoc = await userRef.get();
+        state = AuthState(
+          user: AppUser.fromMap(user.uid, freshDoc.data()),
+          verificationId: state.verificationId,
+        );
       } catch (e) {
-        print("Firestore Error: $e");
-        // If Firestore fails but Auth succeeded, we might need to retry once
-        doc = await userRef.get();
-      }
+        if (!_isPermissionDenied(e)) rethrow;
 
-      if (!doc.exists) {
-        await userRef.set({
-          'phone': user.phoneNumber,
-          'profileType': 'individual',
-          'kycStatus': 'not_submitted',
-          'isVerified': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        // Firestore rules are misconfigured or unavailable; keep the user signed
+        // in and continue with a local fallback profile.
+        print("Firestore Permission Error during OTP verify: $e");
+        state = AuthState(
+          user: AppUser.fromMap(user.uid, {'phone': user.phoneNumber}),
+          verificationId: state.verificationId,
+        );
       }
-
-      // 4. Update Riverpod State
-      state = AuthState(
-        user: AppUser.fromMap(user.uid, (await userRef.get()).data()),
-        verificationId: state.verificationId,
-      );
 
       return true;
     } catch (e) {
@@ -241,23 +253,34 @@ class AuthController extends StateNotifier<AuthState> {
     if (user == null) return;
 
     final userRef = _db.collection('users').doc(user.uid);
-    final doc = await userRef.get();
 
-    if (!doc.exists) {
-      await userRef.set({
-        'phone': user.phoneNumber,
-        'profileType': 'individual',
-        'kycStatus': 'not_submitted',
-        'isVerified': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+    try {
+      final doc = await userRef.get();
+
+      if (!doc.exists) {
+        await userRef.set({
+          'phone': user.phoneNumber,
+          'profileType': 'individual',
+          'kycStatus': 'not_submitted',
+          'isVerified': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      final freshDoc = await userRef.get();
+      state = AuthState(
+        user: AppUser.fromMap(user.uid, freshDoc.data()),
+        verificationId: state.verificationId,
+      );
+    } catch (e) {
+      if (!_isPermissionDenied(e)) rethrow;
+
+      print("Firestore Permission Error during sync: $e");
+      state = AuthState(
+        user: AppUser.fromMap(user.uid, {'phone': user.phoneNumber}),
+        verificationId: state.verificationId,
+      );
     }
-
-    final freshDoc = await userRef.get();
-    state = AuthState(
-      user: AppUser.fromMap(user.uid, freshDoc.data()),
-      verificationId: state.verificationId,
-    );
   }
 
   // Call this on app start
