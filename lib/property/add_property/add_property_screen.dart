@@ -23,17 +23,26 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
 
-    if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text('User not authenticated')),
-      );
-    }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    // 🚫 Capability gate
+        if (user == null) {
+          return const Scaffold(
+            body: Center(child: Text('User not authenticated')),
+          );
+        }
+
+        // 🚫 Capability gate
     if (!canUploadProperty) {
-      return Scaffold(
+          return Scaffold(
         appBar: AppBar(title: const Text('Add Property')),
         body: Padding(
           padding: const EdgeInsets.all(16),
@@ -79,6 +88,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
           ],
         ),
       ),
+        );
+      },
     );
   }
 }
