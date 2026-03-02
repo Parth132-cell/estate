@@ -1,6 +1,7 @@
 import 'package:estatex_app/auth/phone_login_screen.dart';
 import 'package:estatex_app/auth/unit_init_service.dart';
 //import 'package:estatex_app/colors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,7 +13,9 @@ import 'navigation/main_navigation.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+  if (kDebugMode) {
+    FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
