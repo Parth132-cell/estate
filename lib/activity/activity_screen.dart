@@ -7,19 +7,30 @@ class ActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return const Scaffold(
+        appBar: AppBar(title: Text('Activity')),
+        body: Center(child: Text('Please login to see your activity')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Activity')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('activities')
-            .where('userId', isEqualTo: uid)
+            .where('userId', isEqualTo: user.uid)
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Unable to load activity: ${snapshot.error}'));
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -35,8 +46,8 @@ class ActivityScreen extends StatelessWidget {
 
               return ListTile(
                 leading: const Icon(Icons.notifications),
-                title: Text(data['title']),
-                subtitle: Text(data['description']),
+                title: Text((data['title'] ?? '').toString()),
+                subtitle: Text((data['description'] ?? '').toString()),
               );
             },
           );
