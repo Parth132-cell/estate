@@ -8,7 +8,29 @@ class BrokerEscrowScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Escrow Management")),
+      appBar: AppBar(
+        title: const Text("Escrow Management"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: 'Reconcile payments',
+            onPressed: () async {
+              try {
+                final updated = await EscrowService().reconcilePendingEscrows();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Reconciled $updated escrow record(s)')),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Reconcile failed: $e')));
+              }
+            },
+          ),
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: EscrowService().brokerEscrow(),
         builder: (context, snapshot) {
@@ -30,8 +52,16 @@ class BrokerEscrowScreen extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.all(10),
                 child: ListTile(
-                  title: Text("Amount: ₹${data['amount']}"),
-                  subtitle: Text("Status: ${data['status']}"),
+                  title: Text("Amount: ₹${data['amount'] ?? 0}"),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Status: ${data['status'] ?? 'unknown'}"),
+                      Text(
+                        "Payment: ${data['paymentStatus'] ?? 'unknown'} • Txn: ${data['transactionId'] ?? '-'}",
+                      ),
+                    ],
+                  ),
                   trailing: PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'release') {

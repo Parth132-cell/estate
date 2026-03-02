@@ -1,6 +1,17 @@
 import 'package:estatex_app/admin/admin_screen.dart';
 import 'package:estatex_app/auth/phone_login_screen.dart';
+import 'package:estatex_app/property/my_properties_screen.dart';
 import 'package:estatex_app/profile/widgets/capability_card.dart';
+import 'package:estatex_app/screens/ai_recommendations_screen.dart';
+import 'package:estatex_app/screens/ar_preview_screen.dart';
+import 'package:estatex_app/screens/broker_crm_dashboard_screen.dart';
+import 'package:estatex_app/screens/broker_deals_screen.dart';
+import 'package:estatex_app/screens/co_broker_screen.dart';
+import 'package:estatex_app/screens/live_tour_screen.dart';
+import 'package:estatex_app/screens/negotiation_assistant_screen.dart';
+import 'package:estatex_app/screens/broker_escrow_screen.dart';
+import 'package:estatex_app/screens/broker_leads_screen.dart';
+import 'package:estatex_app/screens/buyer_deals_screen.dart';
 import 'package:estatex_app/screens/compare_screen.dart';
 import 'package:estatex_app/screens/saved_properties.dart';
 import 'package:flutter/material.dart';
@@ -13,143 +24,222 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
 
-    if (user == null) {
-      return const Scaffold(body: Center(child: Text('User not logged in')));
-    }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    /// 🔧 TEMP USER FLAGS
-    /// Replace with Firestore later
-    const String kycStatus = 'unverified';
-    const bool canUploadProperty = true;
-    const bool canHostLiveTour = false;
-    const bool isProfessional = false;
+        if (user == null) {
+          return const Scaffold(body: Center(child: Text('User not logged in')));
+        }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          /// 👤 User Info
-          Text(
-            user.phoneNumber ?? 'User',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+        const String kycStatus = 'unverified';
+        const bool canUploadProperty = true;
+        const bool canHostLiveTour = false;
+        const bool isProfessional = false;
 
-          const SizedBox(height: 24),
-
-          /// 🔐 Verification
-          VerificationCard(
-            status: kycStatus,
-            onVerify: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Verification flow coming soon')),
-              );
-            },
-          ),
-
-          const SizedBox(height: 32),
-
-          /// ⚙️ Capabilities
-          const Text(
-            'Capabilities',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
-          CapabilityTile(
-            title: 'Upload Property',
-            enabled: canUploadProperty,
-            onUnlock: () {},
-          ),
-
-          CapabilityTile(
-            title: 'Host Live Tour',
-            enabled: canHostLiveTour,
-            onUnlock: () {},
-          ),
-
-          CapabilityTile(
-            title: 'Professional Listing',
-            enabled: isProfessional,
-            onUnlock: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Upgrade to Professional')),
-              );
-            },
-          ),
-
-          const Divider(height: 40),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminScreen()),
-              );
-            },
-            child: const Text('Open Admin Panel'),
-          ),
-
-          /// ❤️ Saved properties
-          ListTile(
-            leading: const Icon(Icons.favorite),
-            title: const Text('Saved Properties'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SavedPropertiesScreen(),
+        return Scaffold(
+          appBar: AppBar(title: const Text('Profile')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                  ),
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.compare),
-            title: const Text('Compare Properties'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CompareScreen()),
-              );
-            },
-          ),
-
-          /// 🚪 Logout
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
-            onTap: () async {
-              final confirm = await showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Logout'),
-                  content: const Text('Are you sure you want to logout?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.person, color: Color(0xFF1D4ED8)),
                     ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Logout'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        user.phoneNumber ?? 'User',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              );
-
-              if (confirm == true) {
-                await FirebaseAuth.instance.signOut();
-
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
-                  (route) => false,
+              ),
+              const SizedBox(height: 16),
+              VerificationCard(
+                status: kycStatus,
+                onVerify: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Verification flow coming soon')),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Capabilities',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              CapabilityTile(
+                title: 'Upload Property',
+                enabled: canUploadProperty,
+                onUnlock: () {},
+              ),
+              CapabilityTile(
+                title: 'Host Live Tour',
+                enabled: canHostLiveTour,
+                onUnlock: () {},
+              ),
+              CapabilityTile(
+                title: 'Professional Listing',
+                enabled: isProfessional,
+                onUnlock: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Upgrade to Professional')),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Quick Access',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              _navTile(context, Icons.home_work_outlined, 'My Properties', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyPropertiesScreen()),
                 );
-              }
-            },
+              }),
+              _navTile(context, Icons.local_offer_outlined, 'My Offers', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BuyerDealsScreen()),
+                );
+              }),
+              _navTile(context, Icons.handshake_outlined, 'Broker Deals', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BrokerDealsScreen()),
+                );
+              }),
+              _navTile(context, Icons.leaderboard_outlined, 'Broker Leads', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BrokerLeadsScreen()),
+                );
+              }),
+              _navTile(context, Icons.analytics_outlined, 'CRM Dashboard', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BrokerCrmDashboardScreen()),
+                );
+              }),
+              _navTile(context, Icons.groups_2_outlined, 'Co-broker Collaboration', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CoBrokerScreen()),
+                );
+              }),
+              _navTile(context, Icons.video_camera_front_outlined, 'Live Tours', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LiveTourScreen()),
+                );
+              }),
+              _navTile(context, Icons.auto_awesome_outlined, 'AI Recommendations', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AiRecommendationsScreen()),
+                );
+              }),
+              _navTile(context, Icons.support_agent_outlined, 'Negotiation Assistant', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NegotiationAssistantScreen()),
+                );
+              }),
+              _navTile(context, Icons.view_in_ar_outlined, 'AR Preview', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ArPreviewScreen()),
+                );
+              }),
+              _navTile(context, Icons.account_balance_wallet_outlined,
+                  'Broker Escrow', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BrokerEscrowScreen()),
+                );
+              }),
+              _navTile(context, Icons.favorite, 'Saved Properties', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SavedPropertiesScreen(),
+                  ),
+                );
+              }),
+              _navTile(context, Icons.compare, 'Compare Properties', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CompareScreen()),
+                );
+              }),
+              const Divider(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminScreen()),
+                  );
+                },
+                child: const Text('Open Admin Panel'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Logout'),
+                onTap: () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
+                    (route) => false,
+                  );
+                },
+              ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _navTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    VoidCallback onTap,
+  ) {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFF5F7FF),
+      child: ListTile(
+        leading: Icon(icon, color: const Color(0xFF1D4ED8)),
+        title: Text(title),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
