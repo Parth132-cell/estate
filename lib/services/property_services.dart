@@ -24,6 +24,9 @@ class PropertyService {
 
     final docRef = _db.collection('properties').doc();
 
+    await user.reload();
+    await user.getIdToken(true);
+
     // 1️⃣ Upload images and get download urls
     final imageUrls = await _imageUploadService.uploadPropertyImages(
       propertyId: docRef.id,

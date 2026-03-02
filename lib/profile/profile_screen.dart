@@ -30,12 +30,9 @@ class ProfileScreen extends StatelessWidget {
         }
 
         if (user == null) {
-          return const Scaffold(
-            body: Center(child: Text('User not logged in')),
-          );
+          return const Scaffold(body: Center(child: Text('User not logged in')));
         }
 
-        /// TEMP FLAGS (Replace with Firestore later)
         const String kycStatus = 'unverified';
         const bool canUploadProperty = true;
         const bool canHostLiveTour = false;
@@ -46,7 +43,6 @@ class ProfileScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              /// User Info Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -76,33 +72,25 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              /// Verification
+              const SizedBox(height: 16),
               VerificationCard(
                 status: kycStatus,
                 onVerify: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Verification coming soon')),
+                    const SnackBar(content: Text('Verification flow coming soon')),
                   );
                 },
               ),
-
-              const SizedBox(height: 20),
-
-              /// Capabilities
+              const SizedBox(height: 18),
               const Text(
                 'Capabilities',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-
               CapabilityTile(
                 title: 'Upload Property',
                 enabled: canUploadProperty,
                 onUnlock: () {},
               ),
-
               CapabilityTile(
                 title: 'Host Live Tour',
                 enabled: canHostLiveTour,
