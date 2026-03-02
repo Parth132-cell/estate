@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "787200665963",
+    "project_id": "instagram-clone-1fd8f",
+    "storage_bucket": "instagram-clone-1fd8f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787200665963:android:f17f60726e85b365e4c42e",
+        "android_client_info": {
+          "package_name": "com.example.estatex_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBF4HIB48Tqyhpl-SioBeIpkp_xpH1Bc9Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
