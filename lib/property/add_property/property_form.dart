@@ -82,7 +82,7 @@ class _PropertyFormState extends State<PropertyForm> {
         city: cityController.text.trim(),
         bhk: bhk,
         listingType: widget.listingType,
-        // images: images,
+        images: images,
       );
 
       if (!mounted) return;
@@ -93,9 +93,10 @@ class _PropertyFormState extends State<PropertyForm> {
 
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to submit property: $e')));
+      final message = e.toString().toLowerCase().contains('unauthorized')
+          ? 'Upload failed: Storage permission denied. Please check Firebase Storage rules for authenticated users.'
+          : 'Failed to submit property: $e';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => submitting = false);
