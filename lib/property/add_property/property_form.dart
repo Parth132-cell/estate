@@ -82,7 +82,7 @@ class _PropertyFormState extends State<PropertyForm> {
         city: cityController.text.trim(),
         bhk: bhk,
         listingType: widget.listingType,
-        // images: images,
+        images: images,
       );
 
       if (!mounted) return;

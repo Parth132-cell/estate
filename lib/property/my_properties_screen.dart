@@ -47,7 +47,7 @@ class MyPropertiesScreen extends StatelessWidget {
                   children: [
                     PropertyCard(
                       propertyId: doc.id,
-                      imageUrl: images.isNotEmpty ? images[0] : '',
+                      imageUrl: images.isNotEmpty ? images[0].toString() : '',
                       price: '₹${data['price']}',
                       title: data['title'],
                       location: data['city'],
@@ -59,12 +59,13 @@ class MyPropertiesScreen extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (_) => PropertyDetailsScreen(
                               propertyId: doc.id,
-                              imageUrl: images.isNotEmpty ? images[0] : '',
+                              imageUrl: images.isNotEmpty ? images[0].toString() : '',
                               price: '₹${data['price']}',
                               title: data['title'],
                               location: data['city'],
                               bhk: '${data['bhk']} BHK',
                               brokerId: data['uploadedBy'],
+                              imageUrls: images.map((e) => e.toString()).toList(),
                               verified:
                                   data['verificationStatus'] == 'approved',
                             ),
