@@ -2,9 +2,13 @@ import 'package:estatex_app/admin/admin_screen.dart';
 import 'package:estatex_app/auth/phone_login_screen.dart';
 import 'package:estatex_app/property/my_properties_screen.dart';
 import 'package:estatex_app/profile/widgets/capability_card.dart';
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
 import 'package:estatex_app/screens/broker_crm_dashboard_screen.dart';
 import 'package:estatex_app/screens/broker_deals_screen.dart';
 import 'package:estatex_app/screens/co_broker_screen.dart';
+=======
+import 'package:estatex_app/screens/broker_deals_screen.dart';
+>>>>>>> main
 import 'package:estatex_app/screens/broker_escrow_screen.dart';
 import 'package:estatex_app/screens/broker_leads_screen.dart';
 import 'package:estatex_app/screens/buyer_deals_screen.dart';
@@ -98,6 +102,10 @@ class ProfileScreen extends StatelessWidget {
                 enabled: canHostLiveTour,
                 onUnlock: () {},
               ),
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
+=======
+
+>>>>>>> main
               CapabilityTile(
                 title: 'Professional Listing',
                 enabled: isProfessional,
@@ -107,11 +115,20 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
               const SizedBox(height: 12),
+=======
+
+              const SizedBox(height: 20),
+              const Divider(),
+
+              /// Quick Access
+>>>>>>> main
               const Text(
                 'Quick Access',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
               _navTile(context, Icons.home_work_outlined, 'My Properties', () {
                 Navigator.push(
                   context,
@@ -170,6 +187,55 @@ class ProfileScreen extends StatelessWidget {
                 );
               }),
               const Divider(height: 32),
+=======
+
+              _navTile(
+                context,
+                Icons.home_work_outlined,
+                'My Properties',
+                const MyPropertiesScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.local_offer_outlined,
+                'My Offers',
+                const BuyerDealsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.handshake_outlined,
+                'Broker Deals',
+                const BrokerDealsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.leaderboard_outlined,
+                'Broker Leads',
+                const BrokerLeadsScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.account_balance_wallet_outlined,
+                'Broker Escrow',
+                const BrokerEscrowScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.favorite,
+                'Saved Properties',
+                const SavedPropertiesScreen(),
+              ),
+              _navTile(
+                context,
+                Icons.compare,
+                'Compare Properties',
+                const CompareScreen(),
+              ),
+
+              const SizedBox(height: 10),
+              const Divider(),
+
+>>>>>>> main
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -179,6 +245,10 @@ class ProfileScreen extends StatelessWidget {
                 },
                 child: const Text('Open Admin Panel'),
               ),
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
+=======
+
+>>>>>>> main
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
@@ -202,7 +272,11 @@ class ProfileScreen extends StatelessWidget {
     BuildContext context,
     IconData icon,
     String title,
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
     VoidCallback onTap,
+=======
+    Widget screen,
+>>>>>>> main
   ) {
     return Card(
       elevation: 0,
@@ -211,7 +285,13 @@ class ProfileScreen extends StatelessWidget {
         leading: Icon(icon, color: const Color(0xFF1D4ED8)),
         title: Text(title),
         trailing: const Icon(Icons.chevron_right),
+<<<<<<< codex/investigate-sms-retriever-timeout-issue-crc5q9
         onTap: onTap,
+=======
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+        },
+>>>>>>> main
       ),
     );
   }
