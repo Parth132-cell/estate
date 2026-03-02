@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../property/property_card.dart';
 import '../property/property_card_skeleton.dart';
 import '../property/property_details_screen.dart';
+import '../property/add_property/add_property_screen.dart';
+import '../explore/explore_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -14,8 +16,10 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('EstateX')),
       body: ListView(
         padding: const EdgeInsets.only(top: 16),
-        children: const [
-          _FeaturedSection(),
+        children: [
+          const _HomeHeroSection(),
+          const SizedBox(height: 20),
+          const _FeaturedSection(),
           SizedBox(height: 32),
           _RecentSection(),
           SizedBox(height: 32),
@@ -25,6 +29,81 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+
+
+class _HomeHeroSection extends StatelessWidget {
+  const _HomeHeroSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Find your next verified home',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Explore trusted listings, compare faster, and close deals securely.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF1D4ED8),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ExploreScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.search),
+                  label: const Text('Explore'),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white70),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AddPropertyScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_home_work_outlined),
+                  label: const Text('List Property'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 /* ---------------- FEATURED SECTION ---------------- */
 
 class _FeaturedSection extends StatelessWidget {

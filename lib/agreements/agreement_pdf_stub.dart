@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 
 class AgreementPdfStub extends StatelessWidget {
-  const AgreementPdfStub({super.key});
+  final String documentBody;
+
+  const AgreementPdfStub({super.key, required this.documentBody});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Agreement Document")),
-      body: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text(
-          "This is a system-generated agreement document.\n\n"
-          "In Phase-2, this will be a legally binding PDF "
-          "with digital signatures (e-Sign).",
-          style: TextStyle(fontSize: 16),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Text(documentBody, style: const TextStyle(fontSize: 16)),
         ),
       ),
     );
