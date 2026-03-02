@@ -199,6 +199,8 @@ class ProfileScreen extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
+        );
+      },
     );
   }
 }
