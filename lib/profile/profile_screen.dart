@@ -50,6 +50,87 @@ class ProfileScreen extends StatelessWidget {
                   gradient: const LinearGradient(
                     colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                   ),
+        /// 🔧 TEMP USER FLAGS
+    /// Replace with Firestore later
+    const String kycStatus = 'unverified';
+    const bool canUploadProperty = true;
+    const bool canHostLiveTour = false;
+    const bool isProfessional = false;
+
+        return Scaffold(
+      appBar: AppBar(title: const Text('Profile')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          /// 👤 User Info
+          Text(
+            user.phoneNumber ?? 'User',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 24),
+
+          /// 🔐 Verification
+          VerificationCard(
+            status: kycStatus,
+            onVerify: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Verification flow coming soon')),
+              );
+            },
+          ),
+
+          const SizedBox(height: 32),
+
+          /// ⚙️ Capabilities
+          const Text(
+            'Capabilities',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+
+          CapabilityTile(
+            title: 'Upload Property',
+            enabled: canUploadProperty,
+            onUnlock: () {},
+          ),
+
+          CapabilityTile(
+            title: 'Host Live Tour',
+            enabled: canHostLiveTour,
+            onUnlock: () {},
+          ),
+
+          CapabilityTile(
+            title: 'Professional Listing',
+            enabled: isProfessional,
+            onUnlock: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Upgrade to Professional')),
+              );
+            },
+          ),
+
+          const Divider(height: 40),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              );
+            },
+            child: const Text('Open Admin Panel'),
+          ),
+
+          /// ❤️ Saved properties
+          ListTile(
+            leading: const Icon(Icons.favorite),
+            title: const Text('Saved Properties'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SavedPropertiesScreen(),
                 ),
                 child: Row(
                   children: [
@@ -199,6 +280,8 @@ class ProfileScreen extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
+        );
+      },
     );
   }
 }
