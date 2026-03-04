@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:estatex_app/services/lead_services.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
 class BrokerLeadsScreen extends StatelessWidget {
   const BrokerLeadsScreen({super.key});
@@ -21,42 +21,52 @@ class BrokerLeadsScreen extends StatelessWidget {
       }
     }
 
-    final brokerId = FirebaseAuth.instance.currentUser!.uid;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('Please login to view leads')),
+      );
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("My Leads")),
+      appBar: AppBar(title: const Text('My Leads')),
       body: StreamBuilder<QuerySnapshot>(
-        stream: LeadService().brokerLeads(brokerId),
+        stream: LeadService().brokerLeads(user.uid),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Unable to load leads: ${snapshot.error}'),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final leads = snapshot.data!.docs;
-
+          final leads = snapshot.data?.docs ?? [];
           if (leads.isEmpty) {
-            return const Center(child: Text("No leads yet"));
+            return const Center(child: Text('No leads yet'));
           }
 
           return ListView.builder(
             itemCount: leads.length,
             itemBuilder: (context, index) {
               final doc = leads[index];
-              final data = leads[index].data() as Map<String, dynamic>;
+              final data = doc.data() as Map<String, dynamic>;
 
               return ListTile(
-                title: Text("Property: ${data['propertyId']}"),
+                title: Text('Property: ${data['propertyId'] ?? '-'}'),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Status: ${data['status']}"),
+                    Text('Status: ${data['status'] ?? 'new'}'),
                     Row(
                       children: [
-                        const Text("Priority: "),
+                        const Text('Priority: '),
                         Chip(
-                          label: Text(data['priority'] ?? 'warm'),
+                          label: Text((data['priority'] ?? 'warm').toString()),
                           backgroundColor: getPriorityColor(
-                            data['priority'] ?? 'warm',
+                            (data['priority'] ?? 'warm').toString(),
                           ),
                         ),
                       ],
@@ -67,17 +77,12 @@ class BrokerLeadsScreen extends StatelessWidget {
                   onSelected: (value) {
                     if (value == 'contacted') {
                       LeadService().markContacted(doc.id);
-                    } else if (value == 'hot' ||
-                        value == 'warm' ||
-                        value == 'cold') {
+                    } else if (value == 'hot' || value == 'warm' || value == 'cold') {
                       LeadService().updatePriority(doc.id, value);
                     }
                   },
                   itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'contacted',
-                      child: Text('Mark Contacted'),
-                    ),
+                    PopupMenuItem(value: 'contacted', child: Text('Mark Contacted')),
                     PopupMenuDivider(),
                     PopupMenuItem(value: 'hot', child: Text('Hot')),
                     PopupMenuItem(value: 'warm', child: Text('Warm')),
