@@ -8,6 +8,7 @@ import 'package:estatex_app/screens/broker_crm_dashboard_screen.dart';
 import 'package:estatex_app/screens/broker_deals_screen.dart';
 import 'package:estatex_app/screens/co_broker_screen.dart';
 import 'package:estatex_app/screens/live_tour_screen.dart';
+import 'package:estatex_app/screens/visit_schedule_screen.dart';
 import 'package:estatex_app/screens/negotiation_assistant_screen.dart';
 import 'package:estatex_app/screens/broker_escrow_screen.dart';
 import 'package:estatex_app/screens/broker_leads_screen.dart';
@@ -156,6 +157,12 @@ class ProfileScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const LiveTourScreen()),
+                );
+              }),
+              _navTile(context, Icons.event_available_outlined, 'Visit Scheduler', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VisitScheduleScreen()),
                 );
               }),
               _navTile(context, Icons.auto_awesome_outlined, 'AI Recommendations', () {

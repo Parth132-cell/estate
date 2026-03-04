@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'admin_disputes_screen.dart';
 import 'admin_fraud_screen.dart';
+import 'admin_visits_screen.dart';
 import 'admin_property_tile.dart';
 
 class AdminScreen extends StatelessWidget {
@@ -31,6 +32,16 @@ class AdminScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AdminFraudScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.event_note_outlined),
+            tooltip: 'Visit Monitoring',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminVisitsScreen()),
               );
             },
           ),
