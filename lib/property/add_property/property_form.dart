@@ -19,6 +19,9 @@ class _PropertyFormState extends State<PropertyForm> {
   final titleController = TextEditingController();
   final priceController = TextEditingController();
   final cityController = TextEditingController();
+  final localityController = TextEditingController();
+  final areaController = TextEditingController();
+  final descriptionController = TextEditingController();
 
   int bhk = 2;
   List<File> images = [];
@@ -80,9 +83,12 @@ class _PropertyFormState extends State<PropertyForm> {
         title: titleController.text.trim(),
         price: int.parse(priceController.text),
         city: cityController.text.trim(),
+        locality: localityController.text.trim(),
+        areaSqft: int.tryParse(areaController.text.trim()),
+        description: descriptionController.text.trim(),
         bhk: bhk,
         listingType: widget.listingType,
-        // images: images,
+        images: images,
       );
 
       if (!mounted) return;
@@ -93,9 +99,10 @@ class _PropertyFormState extends State<PropertyForm> {
 
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to submit property: $e')));
+      final message = e.toString().toLowerCase().contains('unauthorized')
+          ? 'Upload failed: Storage permission denied. Please check Firebase Storage rules for authenticated users.'
+          : 'Failed to submit property: $e';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => submitting = false);
@@ -108,6 +115,9 @@ class _PropertyFormState extends State<PropertyForm> {
     titleController.dispose();
     priceController.dispose();
     cityController.dispose();
+    localityController.dispose();
+    areaController.dispose();
+    descriptionController.dispose();
     super.dispose();
   }
 
@@ -156,6 +166,33 @@ class _PropertyFormState extends State<PropertyForm> {
             decoration: const InputDecoration(labelText: 'City'),
             validator: (v) =>
                 v == null || v.isEmpty ? 'City is required' : null,
+          ),
+
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: localityController,
+            decoration: const InputDecoration(labelText: 'Locality / Area'),
+          ),
+
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: areaController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Built-up area (sq ft)'),
+          ),
+
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: descriptionController,
+            minLines: 3,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              hintText: 'Tell buyers about amenities, facing, furnishing, etc.',
+            ),
           ),
 
           const SizedBox(height: 20),
