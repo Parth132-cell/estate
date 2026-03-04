@@ -3,7 +3,14 @@ import 'package:estatex_app/services/visit_schedule_service.dart';
 import 'package:flutter/material.dart';
 
 class VisitScheduleScreen extends StatelessWidget {
-  const VisitScheduleScreen({super.key});
+  final String? initialPropertyId;
+  final String? initialBrokerId;
+
+  const VisitScheduleScreen({
+    super.key,
+    this.initialPropertyId,
+    this.initialBrokerId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +27,50 @@ class VisitScheduleScreen extends StatelessWidget {
             _VisitList(stream: VisitScheduleService().brokerVisits(), isBroker: true),
           ],
         ),
+        floatingActionButton: (initialPropertyId != null && initialBrokerId != null)
+            ? FloatingActionButton.extended(
+                onPressed: () => _scheduleVisit(context),
+                icon: const Icon(Icons.add),
+                label: const Text('Schedule'),
+              )
+            : null,
       ),
+    );
+  }
+
+  Future<void> _scheduleVisit(BuildContext context) async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !context.mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 11, minute: 0),
+    );
+    if (pickedTime == null || !context.mounted) return;
+
+    final when = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    await VisitScheduleService().scheduleVisit(
+      propertyId: initialPropertyId!,
+      brokerId: initialBrokerId!,
+      when: when,
+    );
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Visit request submitted')),
     );
   }
 }

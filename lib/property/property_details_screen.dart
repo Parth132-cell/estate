@@ -3,6 +3,8 @@ import 'package:estatex_app/property/featured/featured_plan_sheet.dart';
 import 'package:estatex_app/property/widgets/image_carousel.dart';
 import 'package:estatex_app/property/widgets/property_cta_screen.dart';
 import 'package:estatex_app/screens/broker_profile_screen.dart';
+import 'package:estatex_app/screens/negotiation_assistant_screen.dart';
+import 'package:estatex_app/screens/visit_schedule_screen.dart';
 import 'package:estatex_app/services/deal_services.dart';
 import 'package:flutter/material.dart';
 
@@ -56,6 +58,7 @@ class PropertyDetailsScreen extends StatelessWidget {
         final displayVerified =
             (data['verificationStatus'] ?? '') == 'approved' || verified;
         final displayBroker = (data['uploadedBy'] ?? brokerId).toString();
+        final hasBroker = displayBroker.trim().isNotEmpty;
 
         return Scaffold(
           body: Stack(
@@ -139,7 +142,8 @@ class PropertyDetailsScreen extends StatelessWidget {
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.person_outline),
                                 label: const Text('View Broker'),
-                                onPressed: () {
+                                onPressed: hasBroker
+                                    ? () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -147,7 +151,8 @@ class PropertyDetailsScreen extends StatelessWidget {
                                           BrokerProfileScreen(brokerId: displayBroker),
                                     ),
                                   );
-                                },
+                                }
+                                    : null,
                               ),
                               const SizedBox(width: 10),
                               ElevatedButton(
@@ -208,18 +213,48 @@ class PropertyDetailsScreen extends StatelessWidget {
                 right: 0,
                 child: PropertyCtaBar(
                   onContact: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Contact action coming soon')),
+                    if (!hasBroker) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Broker details unavailable')),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BrokerProfileScreen(brokerId: displayBroker),
+                      ),
                     );
                   },
                   onTour: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Live tour coming soon')),
+                    if (!hasBroker) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Broker details unavailable')),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VisitScheduleScreen(
+                          initialPropertyId: propertyId,
+                          initialBrokerId: displayBroker,
+                        ),
+                      ),
                     );
                   },
                   onNegotiate: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Negotiation coming soon')),
+                    final listedPrice = data['price'] is int
+                        ? data['price'] as int
+                        : int.tryParse(data['price']?.toString() ?? '');
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => NegotiationAssistantScreen(
+                          listedPrice: listedPrice,
+                        ),
+                      ),
                     );
                   },
                 ),

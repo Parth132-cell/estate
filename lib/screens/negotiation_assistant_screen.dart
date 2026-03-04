@@ -2,7 +2,14 @@ import 'package:estatex_app/services/negotiation_assistant_service.dart';
 import 'package:flutter/material.dart';
 
 class NegotiationAssistantScreen extends StatefulWidget {
-  const NegotiationAssistantScreen({super.key});
+  final int? listedPrice;
+  final int? offerPrice;
+
+  const NegotiationAssistantScreen({
+    super.key,
+    this.listedPrice,
+    this.offerPrice,
+  });
 
   @override
   State<NegotiationAssistantScreen> createState() => _NegotiationAssistantScreenState();
@@ -13,6 +20,17 @@ class _NegotiationAssistantScreenState extends State<NegotiationAssistantScreen>
   final offerCtrl = TextEditingController();
   final counterCtrl = TextEditingController();
   Map<String, dynamic>? result;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.listedPrice != null) {
+      listedCtrl.text = widget.listedPrice.toString();
+    }
+    if (widget.offerPrice != null) {
+      offerCtrl.text = widget.offerPrice.toString();
+    }
+  }
 
   @override
   void dispose() {
