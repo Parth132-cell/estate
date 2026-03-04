@@ -54,7 +54,7 @@ class LeadService {
   Future<void> markContacted(String leadId) async {
     await _db.collection('leads').doc(leadId).update({
       'status': 'contacted',
-      'lastContancted': FieldValue.serverTimestamp(),
+      'lastContacted': FieldValue.serverTimestamp(),
     });
   }
 

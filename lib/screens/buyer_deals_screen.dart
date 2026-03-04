@@ -57,7 +57,7 @@ class BuyerDealsScreen extends StatelessWidget {
                                 .toDouble();
                             final tokenAmount = (offerAmount * 0.1).toInt();
 
-                            await EscrowService().createEscrow(
+                            await EscrowService().createEscrowWithPayment(
                               dealId: dealId,
                               propertyId: deal['propertyId'],
                               brokerId: deal['brokerId'],
@@ -66,7 +66,7 @@ class BuyerDealsScreen extends StatelessWidget {
 
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Token amount held in escrow"),
+                                content: Text("Token payment successful. Amount held in escrow"),
                               ),
                             );
                           },
