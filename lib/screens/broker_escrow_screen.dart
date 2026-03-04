@@ -9,7 +9,7 @@ class BrokerEscrowScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Escrow Management"),
+        title: const Text('Escrow Management'),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
@@ -23,9 +23,9 @@ class BrokerEscrowScreen extends StatelessWidget {
                 );
               } catch (e) {
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Reconcile failed: $e')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Reconcile failed: $e')),
+                );
               }
             },
           ),
@@ -34,14 +34,17 @@ class BrokerEscrowScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: EscrowService().brokerEscrow(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Unable to load escrow records: ${snapshot.error}'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final escrows = snapshot.data!.docs;
-
+          final escrows = snapshot.data?.docs ?? [];
           if (escrows.isEmpty) {
-            return const Center(child: Text("No escrow records"));
+            return const Center(child: Text('No escrow records'));
           }
 
           return ListView.builder(
@@ -52,13 +55,13 @@ class BrokerEscrowScreen extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.all(10),
                 child: ListTile(
-                  title: Text("Amount: ₹${data['amount'] ?? 0}"),
+                  title: Text('Amount: ₹${data['amount'] ?? 0}'),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Status: ${data['status'] ?? 'unknown'}"),
+                      Text('Status: ${data['status'] ?? 'unknown'}'),
                       Text(
-                        "Payment: ${data['paymentStatus'] ?? 'unknown'} • Txn: ${data['transactionId'] ?? '-'}",
+                        'Payment: ${data['paymentStatus'] ?? 'unknown'} • Txn: ${data['transactionId'] ?? '-'}',
                       ),
                     ],
                   ),

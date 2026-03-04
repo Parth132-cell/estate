@@ -19,11 +19,14 @@ class BrokerCrmDashboardScreen extends StatelessWidget {
       body: StreamBuilder<Map<String, int>>(
         stream: BrokerCrmService().brokerKpis(user.uid),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Unable to load CRM data: ${snapshot.error}'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final kpi = snapshot.data!;
+          final kpi = snapshot.data ?? const <String, int>{};
           return GridView.count(
             crossAxisCount: 2,
             padding: const EdgeInsets.all(16),

@@ -43,7 +43,7 @@ class ProfileScreen extends StatelessWidget {
         const String kycStatus = 'unverified';
         const bool canUploadProperty = true;
         const bool canHostLiveTour = false;
-        const bool isProfessional = false;
+        const bool isProfessional = true;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile')),
@@ -106,11 +106,7 @@ class ProfileScreen extends StatelessWidget {
               CapabilityTile(
                 title: 'Professional Listing',
                 enabled: isProfessional,
-                onUnlock: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Upgrade to Professional')),
-                  );
-                },
+                onUnlock: () {},
               ),
               const SizedBox(height: 12),
               const Text(

@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:estatex_app/property/featured/featured_plan_sheet.dart';
 import 'package:estatex_app/property/widgets/image_carousel.dart';
 import 'package:estatex_app/property/widgets/property_cta_screen.dart';
 import 'package:estatex_app/screens/broker_profile_screen.dart';
 import 'package:estatex_app/screens/negotiation_assistant_screen.dart';
 import 'package:estatex_app/screens/visit_schedule_screen.dart';
 import 'package:estatex_app/services/deal_services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class PropertyDetailsScreen extends StatelessWidget {
@@ -35,10 +35,7 @@ class PropertyDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('properties')
-          .doc(propertyId)
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection('properties').doc(propertyId).snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? <String, dynamic>{};
         final liveImages = ((data['images'] as List?) ?? imageUrls)
@@ -49,14 +46,11 @@ class PropertyDetailsScreen extends StatelessWidget {
             ? liveImages
             : (imageUrl.isNotEmpty ? [imageUrl] : <String>[]);
 
-        final displayPrice =
-            data['price'] != null ? '₹${data['price']}' : price;
+        final displayPrice = data['price'] != null ? '₹${data['price']}' : price;
         final displayTitle = (data['title'] ?? title).toString();
         final displayCity = (data['city'] ?? location).toString();
-        final displayBhk =
-            data['bhk'] != null ? '${data['bhk']} BHK' : bhk;
-        final displayVerified =
-            (data['verificationStatus'] ?? '') == 'approved' || verified;
+        final displayBhk = data['bhk'] != null ? '${data['bhk']} BHK' : bhk;
+        final displayVerified = (data['verificationStatus'] ?? '') == 'approved' || verified;
         final displayBroker = (data['uploadedBy'] ?? brokerId).toString();
         final hasBroker = displayBroker.trim().isNotEmpty;
 
@@ -94,28 +88,19 @@ class PropertyDetailsScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   displayPrice,
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                                 ),
                               ),
                               if (displayVerified)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.green,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Text(
                                     'Verified',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
+                                    style: TextStyle(color: Colors.white, fontSize: 12),
                                   ),
                                 ),
                             ],
@@ -123,18 +108,12 @@ class PropertyDetailsScreen extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             displayTitle,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             '$displayBhk • $displayCity',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
+                            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -144,24 +123,38 @@ class PropertyDetailsScreen extends StatelessWidget {
                                 label: const Text('View Broker'),
                                 onPressed: hasBroker
                                     ? () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          BrokerProfileScreen(brokerId: displayBroker),
-                                    ),
-                                  );
-                                }
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => BrokerProfileScreen(brokerId: displayBroker),
+                                          ),
+                                        );
+                                      }
                                     : null,
                               ),
                               const SizedBox(width: 10),
                               ElevatedButton(
                                 child: const Text('Make Offer'),
-                                onPressed: () => _showOfferDialog(
-                                  context,
-                                  propertyId,
-                                  displayBroker,
-                                ),
+                                onPressed: () => _showOfferDialog(context, propertyId, displayBroker),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 22),
+                          const Text(
+                            'About this property',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'A verified listing with secure escrow support, digital agreement flow, and smooth broker coordination.',
+                            style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey.shade700),
+                          ),
+                          if (displayVerified)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 24),
+                              child: ElevatedButton(
+                                onPressed: () => _featureProperty(context),
+                                child: const Text('Feature this property'),
                               ),
                             ],
                           ),
@@ -172,34 +165,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'A verified listing with secure escrow support, '
-                            'digital agreement flow, and smooth broker coordination.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              height: 1.6,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                          if (displayVerified) ...[
-                            const SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(20),
-                                    ),
-                                  ),
-                                  builder: (_) => const FeaturePlansSheet(),
-                                );
-                              },
-                              child: const Text('Feature this property'),
-                            ),
-                          ],
                           const SizedBox(height: 120),
                         ],
                       ),
@@ -221,9 +186,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                     }
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => BrokerProfileScreen(brokerId: displayBroker),
-                      ),
+                      MaterialPageRoute(builder: (_) => BrokerProfileScreen(brokerId: displayBroker)),
                     );
                   },
                   onTour: () {
@@ -251,9 +214,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NegotiationAssistantScreen(
-                          listedPrice: listedPrice,
-                        ),
+                        builder: (_) => NegotiationAssistantScreen(listedPrice: listedPrice),
                       ),
                     );
                   },
@@ -264,6 +225,34 @@ class PropertyDetailsScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _featureProperty(BuildContext context) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to feature property')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance.collection('properties').doc(propertyId).update({
+        'isFeatured': true,
+        'featuredAt': FieldValue.serverTimestamp(),
+        'featuredBy': uid,
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Property featured successfully')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to feature property: $e')),
+      );
+    }
   }
 
   Future<void> _showOfferDialog(
@@ -309,7 +298,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Offer sent')),
-
                 );
               },
             ),

@@ -7,40 +7,39 @@ class BrokerDealsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Deal Requests")),
+      appBar: AppBar(title: const Text('Deal Requests')),
       body: StreamBuilder(
         stream: DealServices().brokerDeals(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Unable to load deals: ${snapshot.error}'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final deals = snapshot.data!.docs;
-
+          final deals = snapshot.data?.docs ?? [];
           if (deals.isEmpty) {
-            return const Center(child: Text("No deals"));
+            return const Center(child: Text('No deals'));
           }
+
           return ListView.builder(
+            itemCount: deals.length,
             itemBuilder: (context, index) {
               final deal = deals[index].data() as Map<String, dynamic>;
 
               return Card(
                 margin: const EdgeInsets.all(10),
                 child: ListTile(
-                  title: Text("Offer: ₹${deal['offerAmount']}"),
-                  subtitle: Text("Status: ${deal['status']}"),
+                  title: Text('Offer: ₹${deal['offerAmount'] ?? 0}'),
+                  subtitle: Text('Status: ${deal['status'] ?? 'pending'}'),
                   trailing: PopupMenuButton<String>(
                     onSelected: (value) async {
                       if (value == 'accept') {
-                        await DealServices().updateDealStatus(
-                          deals[index].id,
-                          'accepted',
-                        );
+                        await DealServices().updateDealStatus(deals[index].id, 'accepted');
                       } else if (value == 'reject') {
-                        await DealServices().updateDealStatus(
-                          deals[index].id,
-                          'rejected',
-                        );
+                        await DealServices().updateDealStatus(deals[index].id, 'rejected');
                       }
                     },
                     itemBuilder: (_) => const [
