@@ -2,46 +2,58 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ComparisonService {
-  final _db = FirebaseFirestore.instance;
-  final _uid = FirebaseAuth.instance.currentUser!.uid;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  CollectionReference get _saved => _db.collection('saved');
+  String get _uid {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated');
+    }
+    return user.uid;
+  }
 
-  /// Stream list of comparison property IDs
+  CollectionReference<Map<String, dynamic>> get _saved => _db.collection('saved');
+
   Stream<List<String>> comparisonIds() {
     return _saved
         .where('userId', isEqualTo: _uid)
         .where('forComparison', isEqualTo: true)
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((d) => d['propertyId'] as String).toList(),
-        );
+        .map((snapshot) => snapshot.docs.map((d) => (d.data()['propertyId'] ?? '').toString()).where((e) => e.isNotEmpty).toList());
   }
 
-  /// Add or remove property from comparison
   Future<void> toggleComparison(String propertyId) async {
-    final query = await _saved
-        .where('userId', isEqualTo: _uid)
-        .where('propertyId', isEqualTo: propertyId)
-        .get();
+    final docRef = _saved.doc('${_uid}_$propertyId');
+    final doc = await docRef.get();
 
-    if (query.docs.isNotEmpty) {
-      final doc = query.docs.first;
-      final current = doc['forComparison'] ?? false;
+    if (doc.exists) {
+      final data = doc.data() ?? <String, dynamic>{};
+      final current = data['forComparison'] == true;
+      final favorite = data['isFavorite'] == true;
+      final newValue = !current;
 
-      if (current) {
-        await doc.reference.update({'forComparison': false});
+      if (!newValue && !favorite) {
+        await docRef.delete();
       } else {
-        await doc.reference.update({'forComparison': true});
+        await docRef.set({
+          'userId': _uid,
+          'propertyId': propertyId,
+          'forComparison': newValue,
+          'isFavorite': favorite,
+          'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       }
-    } else {
-      await _saved.add({
-        'userId': _uid,
-        'propertyId': propertyId,
-        'forComparison': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      return;
     }
+
+    await docRef.set({
+      'userId': _uid,
+      'propertyId': propertyId,
+      'forComparison': true,
+      'isFavorite': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 }

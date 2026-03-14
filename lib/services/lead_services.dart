@@ -2,10 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class LeadService {
-  final _db = FirebaseFirestore.instance;
-  final _uid = FirebaseAuth.instance.currentUser!.uid;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// Create Lead
+  String get _uid {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated');
+    }
+    return user.uid;
+  }
+
   Future<void> createLead({
     required String propertyId,
     required String brokerId,
@@ -24,8 +30,7 @@ class LeadService {
     });
   }
 
-  /// Broker Leads Stream
-  Stream<QuerySnapshot> brokerLeads(String brokerId) {
+  Stream<QuerySnapshot<Map<String, dynamic>>> brokerLeads(String brokerId) {
     return _db
         .collection('leads')
         .where('brokerId', isEqualTo: brokerId)
@@ -33,8 +38,7 @@ class LeadService {
         .snapshots();
   }
 
-  /// Buyer Leads
-  Stream<QuerySnapshot> buyerLeads() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> buyerLeads() {
     return _db
         .collection('leads')
         .where('buyerId', isEqualTo: _uid)
@@ -42,7 +46,6 @@ class LeadService {
         .snapshots();
   }
 
-  /// Update Lead Status (Broker)
   Future<void> updateStatus(String leadId, String status) async {
     await _db.collection('leads').doc(leadId).update({'status': status});
   }
@@ -54,7 +57,7 @@ class LeadService {
   Future<void> markContacted(String leadId) async {
     await _db.collection('leads').doc(leadId).update({
       'status': 'contacted',
-      'lastContancted': FieldValue.serverTimestamp(),
+      'lastContacted': FieldValue.serverTimestamp(),
     });
   }
 
