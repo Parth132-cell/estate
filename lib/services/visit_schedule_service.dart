@@ -52,6 +52,11 @@ class VisitScheduleService {
   }
 
   Future<void> updateStatus({required String requestId, required String status}) {
+    const allowed = {'approved', 'completed', 'cancelled', 'requested'};
+    if (!allowed.contains(status)) {
+      throw Exception('Invalid visit status: $status');
+    }
+
     return _db.collection('visit_requests').doc(requestId).update({
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),

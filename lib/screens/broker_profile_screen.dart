@@ -100,7 +100,11 @@ class BrokerProfileScreen extends StatelessWidget {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.call),
                     label: const Text('Call Broker'),
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Call integration will be enabled soon')),
+                      );
+                    },
                   ),
                 const SizedBox(height: 20),
                 const Divider(),

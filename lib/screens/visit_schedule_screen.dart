@@ -54,6 +54,27 @@ class VisitScheduleScreen extends StatelessWidget {
     );
     if (pickedTime == null || !context.mounted) return;
 
+    final noteCtrl = TextEditingController();
+    final note = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Note (Optional)'),
+        content: TextField(
+          controller: noteCtrl,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(hintText: 'Parking details, gate number, etc.'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Skip')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, noteCtrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
     final when = DateTime(
       pickedDate.year,
       pickedDate.month,
@@ -62,38 +83,84 @@ class VisitScheduleScreen extends StatelessWidget {
       pickedTime.minute,
     );
 
-    await VisitScheduleService().scheduleVisit(
-      propertyId: initialPropertyId!,
-      brokerId: initialBrokerId!,
-      when: when,
-    );
+    try {
+      await VisitScheduleService().scheduleVisit(
+        propertyId: initialPropertyId!,
+        brokerId: initialBrokerId!,
+        when: when,
+        note: note ?? '',
+      );
 
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Visit request submitted')),
-    );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Visit request submitted')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to schedule visit: $e')),
+      );
+    }
   }
 }
 
-class _VisitList extends StatelessWidget {
+class _VisitList extends StatefulWidget {
   final Stream<QuerySnapshot<Map<String, dynamic>>> stream;
   final bool isBroker;
 
   const _VisitList({required this.stream, required this.isBroker});
 
   @override
+  State<_VisitList> createState() => _VisitListState();
+}
+
+class _VisitListState extends State<_VisitList> {
+  String? _updatingRequestId;
+
+  Future<void> _updateStatus(String requestId, String status) async {
+    setState(() => _updatingRequestId = requestId);
+    try {
+      await VisitScheduleService().updateStatus(requestId: requestId, status: status);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Visit status updated to $status')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update visit: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _updatingRequestId = null);
+    }
+  }
+
+  String _fmt(DateTime? dateTime) {
+    if (dateTime == null) return '-';
+    final mm = dateTime.month.toString().padLeft(2, '0');
+    final dd = dateTime.day.toString().padLeft(2, '0');
+    final hh = dateTime.hour.toString().padLeft(2, '0');
+    final min = dateTime.minute.toString().padLeft(2, '0');
+    return '${dateTime.year}-$mm-$dd $hh:$min';
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: stream,
+      stream: widget.stream,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Unable to load visits: ${snapshot.error}'));
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data!.docs;
+        final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
           return Center(
-            child: Text(isBroker ? 'No broker visits yet' : 'No visits scheduled yet'),
+            child: Text(widget.isBroker ? 'No broker visits yet' : 'No visits scheduled yet'),
           );
         }
 
@@ -104,21 +171,29 @@ class _VisitList extends StatelessWidget {
             final data = doc.data();
             final at = (data['scheduledAt'] as Timestamp?)?.toDate();
             final status = (data['status'] ?? 'requested').toString();
+            final note = (data['note'] ?? '').toString();
+            final isUpdating = _updatingRequestId == doc.id;
 
             return Card(
               margin: const EdgeInsets.all(10),
               child: ListTile(
                 title: Text('Property: ${data['propertyId'] ?? '-'}'),
-                subtitle: Text('Time: ${at ?? '-'}\nStatus: $status\nNote: ${data['note'] ?? ''}'),
-                trailing: isBroker
-                    ? PopupMenuButton<String>(
-                        onSelected: (v) => VisitScheduleService().updateStatus(requestId: doc.id, status: v),
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'approved', child: Text('Approve')),
-                          PopupMenuItem(value: 'completed', child: Text('Complete')),
-                          PopupMenuItem(value: 'cancelled', child: Text('Cancel')),
-                        ],
-                      )
+                subtitle: Text('Time: ${_fmt(at)}\nStatus: $status\nNote: ${note.isEmpty ? '-' : note}'),
+                trailing: widget.isBroker
+                    ? isUpdating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : PopupMenuButton<String>(
+                            onSelected: (value) => _updateStatus(doc.id, value),
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'approved', child: Text('Approve')),
+                              PopupMenuItem(value: 'completed', child: Text('Complete')),
+                              PopupMenuItem(value: 'cancelled', child: Text('Cancel')),
+                            ],
+                          )
                     : null,
               ),
             );

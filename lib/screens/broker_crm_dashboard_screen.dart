@@ -27,17 +27,42 @@ class BrokerCrmDashboardScreen extends StatelessWidget {
           }
 
           final kpi = snapshot.data ?? const <String, int>{};
-          return GridView.count(
-            crossAxisCount: 2,
+          return ListView(
             padding: const EdgeInsets.all(16),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
             children: [
-              _KpiCard('Total Leads', kpi['totalLeads'] ?? 0, Icons.people),
-              _KpiCard('Hot Leads', kpi['hotLeads'] ?? 0, Icons.local_fire_department),
-              _KpiCard('Contacted', kpi['contacted'] ?? 0, Icons.call),
-              _KpiCard('Active Deals', kpi['activeDeals'] ?? 0, Icons.handshake_outlined),
-              _KpiCard('Won Deals', kpi['wonDeals'] ?? 0, Icons.emoji_events_outlined),
+              _SectionTitle('Lead Funnel'),
+              const SizedBox(height: 10),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                children: [
+                  _KpiCard('Total Leads', kpi['totalLeads'] ?? 0, Icons.people),
+                  _KpiCard('Hot Leads', kpi['hotLeads'] ?? 0, Icons.local_fire_department),
+                  _KpiCard('Warm Leads', kpi['warmLeads'] ?? 0, Icons.wb_sunny_outlined),
+                  _KpiCard('Contacted', kpi['contacted'] ?? 0, Icons.call),
+                  _KpiCard('Follow-ups Set', kpi['followUpsSet'] ?? 0, Icons.event_available),
+                  _KpiCard('Contact Rate', kpi['contactedRate'] ?? 0, Icons.percent, suffix: '%'),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _SectionTitle('Deal Funnel'),
+              const SizedBox(height: 10),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                children: [
+                  _KpiCard('Active Deals', kpi['activeDeals'] ?? 0, Icons.handshake_outlined),
+                  _KpiCard('Won Deals', kpi['wonDeals'] ?? 0, Icons.emoji_events_outlined),
+                  _KpiCard('Rejected Deals', kpi['rejectedDeals'] ?? 0, Icons.cancel_outlined),
+                  _KpiCard('Win Rate', kpi['winRate'] ?? 0, Icons.trending_up, suffix: '%'),
+                ],
+              ),
             ],
           );
         },
@@ -46,12 +71,26 @@ class BrokerCrmDashboardScreen extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    );
+  }
+}
+
 class _KpiCard extends StatelessWidget {
   final String title;
   final int value;
   final IconData icon;
+  final String suffix;
 
-  const _KpiCard(this.title, this.value, this.icon);
+  const _KpiCard(this.title, this.value, this.icon, {this.suffix = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +107,10 @@ class _KpiCard extends StatelessWidget {
           children: [
             Icon(icon, color: const Color(0xFF1D4ED8)),
             const Spacer(),
-            Text('$value', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            Text(
+              '$value$suffix',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
             Text(title, style: const TextStyle(color: Colors.grey)),
           ],
         ),

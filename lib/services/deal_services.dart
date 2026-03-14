@@ -2,8 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class DealServices {
-  final _db = FirebaseFirestore.instance;
-  final _uid = FirebaseAuth.instance.currentUser!.uid;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  String get _uid {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated');
+    }
+    return user.uid;
+  }
 
   Future<void> createOffer({
     required String propertyId,
@@ -22,7 +29,7 @@ class DealServices {
     });
   }
 
-  Stream<QuerySnapshot> buyerDeals() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> buyerDeals() {
     return _db
         .collection('deals')
         .where('buyerId', isEqualTo: _uid)
@@ -30,7 +37,7 @@ class DealServices {
         .snapshots();
   }
 
-  Stream<QuerySnapshot> brokerDeals() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> brokerDeals() {
     return _db
         .collection('deals')
         .where('brokerId', isEqualTo: _uid)
