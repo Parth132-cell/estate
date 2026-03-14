@@ -156,6 +156,14 @@ class PropertyDetailsScreen extends StatelessWidget {
                                 onPressed: () => _featureProperty(context),
                                 child: const Text('Feature this property'),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 22),
+                          const Text(
+                            'About this property',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
                           const SizedBox(height: 120),
                         ],
