@@ -5,7 +5,6 @@ import 'package:estatex_app/auth/auth_service.dart';
 import 'package:estatex_app/auth/auth_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 enum AuthStep { phoneInput, otpInput, authenticated }
 
@@ -79,12 +78,10 @@ final authControllerProvider =
     });
 
 class AuthController extends StateNotifier<AuthUiState> {
-  AuthController({
-    required AuthGateway authService,
-    required FirebaseFirestore db,
-  }) : _authService = authService,
-       _db = db,
-       super(const AuthUiState());
+  AuthController({required AuthGateway authService, required FirebaseFirestore db})
+      : _authService = authService,
+        _db = db,
+        super(const AuthUiState());
 
   final AuthGateway _authService;
   final FirebaseFirestore _db;
@@ -214,7 +211,10 @@ class AuthController extends StateNotifier<AuthUiState> {
 
       await _ensureUserProfile(result.user!);
 
-      state = state.copyWith(isLoading: false, step: AuthStep.authenticated);
+      state = state.copyWith(
+        isLoading: false,
+        step: AuthStep.authenticated,
+      );
       return true;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(
@@ -254,7 +254,9 @@ class AuthController extends StateNotifier<AuthUiState> {
 
     if (!doc.exists) {
       await userRef.set({
+        'name': '',
         'phone': user.phoneNumber,
+        'role': 'user',
         'profileType': 'individual',
         'canUploadProperty': true,
         'canHostLiveTour': false,

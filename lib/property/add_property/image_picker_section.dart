@@ -4,8 +4,13 @@ import 'package:image_picker/image_picker.dart';
 
 class ImagePickerSection extends StatefulWidget {
   final Function(List<File>) onChanged;
+  final int maxImages;
 
-  const ImagePickerSection({super.key, required this.onChanged});
+  const ImagePickerSection({
+    super.key,
+    required this.onChanged,
+    this.maxImages = 10,
+  });
 
   @override
   State<ImagePickerSection> createState() => _ImagePickerSectionState();
@@ -21,11 +26,29 @@ class _ImagePickerSectionState extends State<ImagePickerSection> {
 
       if (pickedFiles.isEmpty) return;
 
+      final availableSlots = widget.maxImages - _images.length;
+      if (availableSlots <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You can upload up to ${widget.maxImages} images')),
+        );
+        return;
+      }
+
+      final selected = pickedFiles.take(availableSlots).map((x) => File(x.path)).toList();
+
       setState(() {
-        _images.addAll(pickedFiles.map((x) => File(x.path)));
+        _images.addAll(selected);
       });
 
       widget.onChanged(_images);
+
+      if (pickedFiles.length > selected.length) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Only ${widget.maxImages} images are allowed per listing'),
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -50,9 +73,9 @@ class _ImagePickerSectionState extends State<ImagePickerSection> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Add at least 3 images',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+        Text(
+          'Add 3 to ${widget.maxImages} images',
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
         const SizedBox(height: 12),
 
