@@ -13,15 +13,34 @@ class UserInitService {
     try {
       final snap = await ref.get();
 
+      final data = snap.data() ?? <String, dynamic>{};
+
       if (!snap.exists) {
         await ref.set({
-          'phone': user.phoneNumber,
+          'name': '',
+          'phone': user.phoneNumber ?? '',
           'createdAt': FieldValue.serverTimestamp(),
+          'role': 'user',
           'kycStatus': 'unverified',
           'canUploadProperty': true,
           'canHostLiveTour': false,
           'isProfessional': false,
-        });
+        }, SetOptions(merge: true));
+        return;
+      }
+
+      final updates = <String, dynamic>{};
+      if ((data['name'] ?? '').toString().isEmpty) updates['name'] = '';
+      if ((data['phone'] ?? '').toString().isEmpty) {
+        updates['phone'] = user.phoneNumber ?? '';
+      }
+      if ((data['role'] ?? '').toString().isEmpty) updates['role'] = 'user';
+      if (data['createdAt'] == null) updates['createdAt'] = FieldValue.serverTimestamp();
+      if (data['canUploadProperty'] == null) updates['canUploadProperty'] = true;
+      if (data['canHostLiveTour'] == null) updates['canHostLiveTour'] = false;
+
+      if (updates.isNotEmpty) {
+        await ref.set(updates, SetOptions(merge: true));
       }
     } on FirebaseException catch (e) {
       // Allow app navigation even if Firestore rules are not ready.

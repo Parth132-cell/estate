@@ -5,6 +5,7 @@ import 'package:estatex_app/app/splash_screen.dart';
 import 'package:estatex_app/auth/phone_login_screen.dart';
 import 'package:estatex_app/auth/unit_init_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,12 @@ import 'navigation/main_navigation.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: kDebugMode
+        ? AndroidProvider.debug
+        : AndroidProvider.playIntegrity,
+    appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
+  );
   if (kDebugMode) {
     FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
   }
