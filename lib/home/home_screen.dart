@@ -176,6 +176,24 @@ class _FeaturedSection extends StatelessWidget {
 class _RecentSection extends StatelessWidget {
   const _RecentSection();
 
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _recentApproved() {
+    return FirebaseFirestore.instance
+        .collection('properties')
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+      final approved = snapshot.docs.where((doc) {
+        final data = doc.data();
+        final verification = (data['verificationStatus'] ?? '').toString().toLowerCase();
+        final status = (data['status'] ?? '').toString().toLowerCase();
+        return verification == 'approved' || status == 'approved';
+      }).toList();
+
+      return approved.take(10).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -190,14 +208,16 @@ class _RecentSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('properties')
-              .where('verificationStatus', isEqualTo: 'approved')
-              .orderBy('createdAt', descending: true)
-              .limit(10)
-              .snapshots(),
+        StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+          stream: _recentApproved(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Unable to load recent properties: ${snapshot.error}'),
+              );
+            }
+
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
@@ -205,7 +225,8 @@ class _RecentSection extends StatelessWidget {
               );
             }
 
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            final docs = snapshot.data ?? [];
+            if (docs.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
@@ -215,14 +236,12 @@ class _RecentSection extends StatelessWidget {
               );
             }
 
-            final docs = snapshot.data!.docs;
-
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: docs.length,
               itemBuilder: (context, index) {
-                final data = docs[index].data() as Map<String, dynamic>;
+                final data = docs[index].data();
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(

@@ -1,4 +1,5 @@
 import 'package:estatex_app/services/comparison_service.dart';
+import 'package:estatex_app/favorites/favorite_button.dart';
 import 'package:estatex_app/services/saved_service.dart';
 import 'package:flutter/material.dart';
 
@@ -178,22 +179,7 @@ class _FavoriteIcon extends StatelessWidget {
         color: Colors.white,
         shape: BoxShape.circle,
       ),
-      child: StreamBuilder<bool>(
-        stream: SavedService().isFavorite(propertyId),
-        builder: (context, snapshot) {
-          final isFav = snapshot.data ?? false;
-
-          return IconButton(
-            icon: Icon(
-              isFav ? Icons.favorite : Icons.favorite_border,
-              color: isFav ? Colors.red : Colors.grey,
-            ),
-            onPressed: () {
-              SavedService().toggleFavorite(propertyId);
-            },
-          );
-        },
-      ),
+      child: FavoriteButton(propertyId: propertyId),
     );
   }
 }

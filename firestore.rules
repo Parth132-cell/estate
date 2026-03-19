@@ -5,9 +5,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function validRole(role) {
+      return role in ['user', 'broker', 'admin'];
+    }
+
+    function validPropertyCreate(data) {
+      return data.title is string
+        && data.title.size() >= 3
+        && data.price is int
+        && data.price > 0
+        && data.city is string
+        && data.city.size() >= 2
+        && data.bhk is int
+        && data.bhk > 0
+        && data.imageUrls is list
+        && data.imageUrls.size() > 0
+        && data.status == 'pending'
+        && data.createdBy == request.auth.uid;
+    }
+
     match /properties/{propertyId} {
       allow read: if true;
-      allow create: if signedIn();
+      allow create: if signedIn() && validPropertyCreate(request.resource.data);
       allow update, delete: if signedIn() && resource.data.uploadedBy == request.auth.uid;
     }
 
@@ -25,7 +44,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && validRole(request.resource.data.role)
+        && request.resource.data.phone is string;
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      match /favorites/{propertyId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
     }
 
     match /{document=**} {
