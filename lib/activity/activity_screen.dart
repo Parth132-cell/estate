@@ -10,7 +10,7 @@ class ActivityScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      return const Scaffold(
+      return Scaffold(
         appBar: AppBar(title: Text('Activity')),
         body: Center(child: Text('Please login to see your activity')),
       );
@@ -30,7 +30,9 @@ class ActivityScreen extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Unable to load activity: ${snapshot.error}'));
+            return Center(
+              child: Text('Unable to load activity: ${snapshot.error}'),
+            );
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
