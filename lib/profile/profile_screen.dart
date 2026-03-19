@@ -243,15 +243,16 @@ class ProfileScreen extends StatelessWidget {
                 );
               }),
               const Divider(height: 32),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminScreen()),
-                  );
-                },
-                child: const Text('Open Admin Panel'),
-              ),
+              if (role == 'admin')
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdminScreen()),
+                    );
+                  },
+                  child: const Text('Open Admin Panel'),
+                ),
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
