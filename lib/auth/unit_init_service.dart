@@ -36,6 +36,8 @@ class UserInitService {
       }
       if ((data['role'] ?? '').toString().isEmpty) updates['role'] = 'user';
       if (data['createdAt'] == null) updates['createdAt'] = FieldValue.serverTimestamp();
+      if (data['canUploadProperty'] == null) updates['canUploadProperty'] = true;
+      if (data['canHostLiveTour'] == null) updates['canHostLiveTour'] = false;
 
       if (updates.isNotEmpty) {
         await ref.set(updates, SetOptions(merge: true));

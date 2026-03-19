@@ -45,7 +45,7 @@ class ProfileScreen extends StatelessWidget {
         final phone = (data['phone'] ?? user.phoneNumber ?? '').toString();
         final role = (data['role'] ?? 'user').toString();
         final kycStatus = (data['kycStatus'] ?? 'unverified').toString();
-        final canUploadProperty = data['canUploadProperty'] == true;
+        final canUploadProperty = data['canUploadProperty'] != false;
         final canHostLiveTour = data['canHostLiveTour'] == true;
         final isProfessional = role == 'broker' || role == 'admin';
         final isIncomplete = name.trim().isEmpty;
@@ -297,18 +297,13 @@ class ProfileScreen extends StatelessWidget {
                     decoration: const InputDecoration(labelText: 'Name (optional)'),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    items: const [
-                      DropdownMenuItem(value: 'user', child: Text('User')),
-                      DropdownMenuItem(value: 'broker', child: Text('Broker')),
-                      DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => selectedRole = value);
-                    },
-                    decoration: const InputDecoration(labelText: 'Role'),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Role: ${selectedRole.toUpperCase()}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   ),
                 ],
               );
@@ -323,7 +318,6 @@ class ProfileScreen extends StatelessWidget {
               onPressed: () async {
                 await userRef.set({
                   'name': nameCtrl.text.trim(),
-                  'role': selectedRole,
                   'updatedAt': FieldValue.serverTimestamp(),
                 }, SetOptions(merge: true));
                 if (!dialogContext.mounted) return;

@@ -50,7 +50,7 @@ service cloud.firestore {
         && request.resource.data.phone is string;
       allow update: if signedIn()
         && request.auth.uid == userId
-        && validRole(request.resource.data.role)
+        && request.resource.data.role == resource.data.role
         && request.resource.data.createdAt == resource.data.createdAt;
 
       match /favorites/{propertyId} {
