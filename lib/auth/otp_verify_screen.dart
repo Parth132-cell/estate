@@ -1,8 +1,7 @@
-import 'package:estatex_app/navigation/main_navigation.dart';
+import 'package:estatex_app/auth/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'auth_controller.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 
 class OtpVerifyScreen extends ConsumerStatefulWidget {
   const OtpVerifyScreen({super.key});
@@ -11,90 +10,100 @@ class OtpVerifyScreen extends ConsumerStatefulWidget {
   ConsumerState<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
 }
 
-class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
-  final otpCtrl = TextEditingController();
-  bool loading = false;
+class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> with CodeAutoFill {
+  final TextEditingController _otpController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    listenForCode();
+  }
+
+  @override
+  void codeUpdated() {
+    if (code == null) return;
+    _otpController.text = code!;
+    ref.read(authControllerProvider.notifier).updateOtp(code!);
+  }
 
   @override
   void dispose() {
-    otpCtrl.dispose();
+    cancel();
+    _otpController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(authControllerProvider);
+    final controller = ref.read(authControllerProvider.notifier);
+
+    ref.listen(authControllerProvider, (previous, next) {
+      if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(next.errorMessage!)));
+      }
+    });
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Verify OTP")),
+      appBar: AppBar(title: const Text('Verify OTP')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text('Code sent to ${state.e164Phone}'),
+            const SizedBox(height: 12),
             TextField(
-              controller: otpCtrl,
+              controller: _otpController,
               keyboardType: TextInputType.number,
               maxLength: 6,
+              enabled: !state.isLoading,
+              onChanged: controller.updateOtp,
               decoration: const InputDecoration(
-                labelText: "Enter OTP",
+                labelText: 'Enter 6-digit OTP',
                 border: OutlineInputBorder(),
-                counterText: "",
               ),
             ),
-
-            const SizedBox(height: 20),
-
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  state.canResend
+                      ? 'Didn\'t receive it?'
+                      : 'Retry in ${state.resendInSeconds}s',
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: state.canResend && !state.isLoading
+                      ? () async {
+                          await controller.resendOtp();
+                        }
+                      : null,
+                  child: const Text('Resend OTP'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: loading
+                onPressed: state.isLoading
                     ? null
                     : () async {
-                        if (otpCtrl.text.trim().length != 6) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Enter valid 6-digit OTP"),
-                            ),
-                          );
-                          return;
-                        }
-
-                        setState(() => loading = true);
-
-                        bool success = false;
-
-                        try {
-                          success = await ref
-                              .read(authControllerProvider.notifier)
-                              .verifyOtp(otpCtrl.text.trim())
-                              .timeout(const Duration(seconds: 60));
-                        } catch (e) {
-                          print("Verify timeout/error: $e");
-                          success = false;
-                        }
-
-                        if (!mounted) return;
-
-                        setState(() => loading = false);
-
-                        if (success) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const MainNavigation(),
-                            ),
-                            (_) => false,
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Verification failed. Try again."),
-                            ),
-                          );
-                        }
+                        final success = await controller.verifyOtp();
+                        if (!context.mounted || !success) return;
+                        Navigator.popUntil(context, (route) => route.isFirst);
                       },
-                child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Verify"),
+                child: state.isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Verify'),
               ),
             ),
           ],

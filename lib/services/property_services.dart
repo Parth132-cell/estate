@@ -19,10 +19,19 @@ class PropertyService {
     required int bhk,
     required String listingType,
     required List<File> images,
+    required void Function(double progress) onUploadProgress,
   }) async {
+    _validateInput(
+      title: title,
+      price: price,
+      city: city,
+      bhk: bhk,
+      images: images,
+    );
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('User not authenticated');
+      throw Exception('Only authenticated users can submit properties');
     }
 
     final docRef = _db.collection('properties').doc();
@@ -30,17 +39,16 @@ class PropertyService {
     await user.reload();
     await user.getIdToken(true);
 
-    // 1️⃣ Upload images and get download urls
     final imageUrls = await _imageUploadService.uploadPropertyImages(
       propertyId: docRef.id,
       images: images,
+      onProgress: onUploadProgress,
     );
 
     if (imageUrls.isEmpty) {
       throw Exception('Image upload failed. No image URLs were created');
     }
 
-    // 2️⃣ Create property with image urls
     await docRef.set({
       'title': title,
       'price': price,
@@ -51,13 +59,15 @@ class PropertyService {
       'description': description,
       'bhk': bhk,
       'listingType': listingType,
+      'createdBy': user.uid,
       'uploadedBy': user.uid,
+      'status': 'pending',
       'verificationStatus': 'pending',
+      'imageUrls': imageUrls,
       'images': imageUrls,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // 3️⃣ Create activity
     await _db.collection('activities').add({
       'userId': user.uid,
       'type': 'property_submitted',
@@ -66,5 +76,32 @@ class PropertyService {
       'entityId': docRef.id,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  void _validateInput({
+    required String title,
+    required int price,
+    required String city,
+    required int bhk,
+    required List<File> images,
+  }) {
+    if (title.trim().length < 3) {
+      throw Exception('Title must be at least 3 characters');
+    }
+    if (price <= 0) {
+      throw Exception('Price must be greater than zero');
+    }
+    if (city.trim().length < 2) {
+      throw Exception('City is required');
+    }
+    if (bhk <= 0 || bhk > 20) {
+      throw Exception('BHK value is invalid');
+    }
+    if (images.length < 3) {
+      throw Exception('Please add at least 3 images');
+    }
+    if (images.length > 10) {
+      throw Exception('Maximum 10 images allowed');
+    }
   }
 }
