@@ -1,9 +1,88 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:estatex_app/favorites/favorite_button.dart';
+import 'package:estatex_app/favorites/favorites_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class SavedPropertiesScreen extends StatelessWidget {
+class SavedPropertiesScreen extends StatefulWidget {
   const SavedPropertiesScreen({super.key});
+
+  @override
+  State<SavedPropertiesScreen> createState() => _SavedPropertiesScreenState();
+}
+
+class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
+  final _service = FavoritesService();
+  final _scrollController = ScrollController();
+
+  final List<FavoritePropertyItem> _items = [];
+  DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+
+  bool _isLoading = false;
+  bool _hasMore = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadNextPage();
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isLoading || !_hasMore) return;
+    final position = _scrollController.position;
+    if (position.pixels > position.maxScrollExtent - 300) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    if (_isLoading || !_hasMore) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final page = await _service.fetchFavoritesPage(lastDocument: _lastDoc);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _lastDoc = page.lastDocument;
+        _hasMore = page.hasMore;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Unable to load saved list: $e';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _items.clear();
+      _lastDoc = null;
+      _hasMore = true;
+      _error = null;
+    });
+    await _loadNextPage();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,89 +95,66 @@ class SavedPropertiesScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Saved Properties')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('saved')
-            .where('userId', isEqualTo: user.uid)
-            .where('isFavorite', isEqualTo: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Unable to load saved list: ${snapshot.error}'));
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final savedDocs = snapshot.data?.docs ?? [];
-          if (savedDocs.isEmpty) {
-            return const Center(child: Text('No saved properties'));
-          }
-
-          final propertyIds = savedDocs
-              .map((e) => (e.data()['propertyId'] ?? '').toString())
-              .where((e) => e.isNotEmpty)
-              .toList();
-
-          if (propertyIds.isEmpty) {
-            return const Center(child: Text('No saved properties'));
-          }
-
-          return FutureBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-            future: _loadProperties(propertyIds),
-            builder: (context, propertySnapshot) {
-              if (propertySnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          itemCount: _items.length + 1,
+          itemBuilder: (context, index) {
+            if (index == _items.length) {
+              if (_isLoading) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
               }
-
-              if (propertySnapshot.hasError) {
-                return Center(child: Text('Unable to load properties: ${propertySnapshot.error}'));
+              if (_error != null) {
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                );
               }
-
-              final properties = propertySnapshot.data ?? [];
-              if (properties.isEmpty) {
-                return const Center(child: Text('No saved properties available'));
+              if (_items.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 36),
+                  child: Center(child: Text('No saved properties')),
+                );
               }
+              if (!_hasMore) {
+                return const SizedBox(height: 12);
+              }
+              return const SizedBox.shrink();
+            }
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: properties.length,
-                itemBuilder: (context, index) {
-                  final data = properties[index].data();
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      title: Text((data['title'] ?? '').toString()),
-                      subtitle: Text('${data['city'] ?? '-'} • ₹${data['price'] ?? 0}'),
-                    ),
-                  );
-                },
+            final item = _items[index];
+            if (item.isDeleted) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  title: const Text('Property unavailable'),
+                  subtitle: Text('ID: ${item.propertyId}'),
+                  trailing: FavoriteButton(propertyId: item.propertyId),
+                ),
               );
-            },
-          );
-        },
+            }
+
+            final property = item.property ?? const <String, dynamic>{};
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                title: Text((property['title'] ?? 'Untitled').toString()),
+                subtitle: Text(
+                  '${property['city'] ?? '-'} • ₹${property['price'] ?? 0}',
+                ),
+                trailing: FavoriteButton(propertyId: item.propertyId),
+              ),
+            );
+          },
+        ),
       ),
     );
-  }
-
-  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _loadProperties(
-    List<String> propertyIds,
-  ) async {
-    final chunks = <List<String>>[];
-    for (int i = 0; i < propertyIds.length; i += 10) {
-      final end = (i + 10 < propertyIds.length) ? i + 10 : propertyIds.length;
-      chunks.add(propertyIds.sublist(i, end));
-    }
-
-    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    for (final chunk in chunks) {
-      final snap = await FirebaseFirestore.instance
-          .collection('properties')
-          .where(FieldPath.documentId, whereIn: chunk)
-          .get();
-      docs.addAll(snap.docs);
-    }
-
-    return docs;
   }
 }
