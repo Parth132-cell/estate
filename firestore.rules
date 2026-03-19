@@ -5,6 +5,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     function validRole(role) {
       return role in ['user', 'broker', 'admin'];
     }
@@ -21,18 +26,66 @@ service cloud.firestore {
         && data.imageUrls is list
         && data.imageUrls.size() > 0
         && data.status == 'pending'
+        && data.verificationStatus == 'pending'
         && data.createdBy == request.auth.uid;
+    }
+
+    function ownerCanUpdateProperty() {
+      return resource.data.uploadedBy == request.auth.uid
+        && request.resource.data.verificationStatus == resource.data.verificationStatus
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.rejectionReason == resource.data.rejectionReason
+        && request.resource.data.moderatedBy == resource.data.moderatedBy
+        && request.resource.data.moderatedAt == resource.data.moderatedAt;
+    }
+
+    function validAdminModerationUpdate() {
+      return isAdmin()
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'verificationStatus',
+          'status',
+          'rejectionReason',
+          'moderatedBy',
+          'moderatedAt'
+        ])
+        && request.resource.data.verificationStatus in ['approved', 'rejected']
+        && request.resource.data.status == request.resource.data.verificationStatus
+        && request.resource.data.moderatedBy == request.auth.uid
+        && request.resource.data.moderatedAt is timestamp
+        && (
+          (request.resource.data.verificationStatus == 'approved'
+            && !(request.resource.data.keys().hasAny(['rejectionReason'])) )
+          ||
+          (request.resource.data.verificationStatus == 'rejected'
+            && request.resource.data.rejectionReason is string
+            && request.resource.data.rejectionReason.size() > 0)
+        );
     }
 
     match /properties/{propertyId} {
       allow read: if true;
       allow create: if signedIn() && validPropertyCreate(request.resource.data);
-      allow update, delete: if signedIn() && resource.data.uploadedBy == request.auth.uid;
+      allow update: if signedIn() && (ownerCanUpdateProperty() || validAdminModerationUpdate());
+      allow delete: if signedIn() && resource.data.uploadedBy == request.auth.uid;
     }
 
     match /activities/{activityId} {
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /property_audit_logs/{auditId} {
+      allow create: if isAdmin() && request.resource.data.performedBy == request.auth.uid;
+      allow read: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow create: if isAdmin();
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['read', 'readAt'])
+        && request.resource.data.read is bool;
     }
 
     match /visit_requests/{requestId} {
