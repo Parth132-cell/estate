@@ -150,22 +150,36 @@ class PropertyDetailsScreen extends StatelessWidget {
                             style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey.shade700),
                           ),
                           if (displayVerified)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 24),
-                              child: ElevatedButton(
-                                onPressed: () => _featureProperty(context),
-                                child: const Text('Feature this property'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'About this property',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          const SizedBox(height: 120),
+  Padding(
+    padding: const EdgeInsets.only(top: 24),
+    child: ElevatedButton(
+      onPressed: () => _featureProperty(context),
+      child: const Text('Feature this property'),
+    ),
+  ),
+
+const SizedBox(height: 22),
+
+const Text(
+  'About this property',
+  style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
+const SizedBox(height: 10),
+
+Text(
+  'A verified listing with secure escrow support, digital agreement flow, and smooth broker coordination.',
+  style: TextStyle(
+    fontSize: 14,
+    height: 1.6,
+    color: Colors.grey.shade700,
+  ),
+),
+
+const SizedBox(height: 120),
                         ],
                       ),
                     ),

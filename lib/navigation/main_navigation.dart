@@ -107,7 +107,7 @@ class _NavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
