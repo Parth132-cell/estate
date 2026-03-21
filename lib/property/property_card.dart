@@ -1,4 +1,3 @@
-import 'package:estatex_app/services/comparison_service.dart';
 import 'package:estatex_app/favorites/favorite_button.dart';
 import 'package:estatex_app/services/saved_service.dart';
 import 'package:flutter/material.dart';
@@ -191,8 +190,6 @@ class _CompareIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final comparisonService = ComparisonService();
-
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -208,8 +205,16 @@ class _CompareIcon extends StatelessWidget {
               Icons.compare_arrows,
               color: selected ? Colors.blue : Colors.grey,
             ),
-            onPressed: () {
-              SavedService().toggleComparison(propertyId);
+            onPressed: () async {
+              final result = await SavedService().toggleComparison(propertyId);
+              if (!context.mounted) return;
+              if (result == ComparisonToggleResult.limitReached) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('You can compare up to 3 properties at once.'),
+                  ),
+                );
+              }
             },
           );
         },
