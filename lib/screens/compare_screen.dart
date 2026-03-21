@@ -13,12 +13,22 @@ class CompareScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Compare Properties')),
       body: StreamBuilder<List<String>>(
         stream: service.comparisonIds(),
+        initialData: const <String>[],
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Unable to load comparison list: ${snapshot.error}'),
+              ),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final ids = snapshot.data!;
+          final ids = snapshot.data ?? const <String>[];
           final selectedIds = ids.take(SavedService.maxComparisonCount).toList();
 
           if (selectedIds.length < 2) {
@@ -33,12 +43,23 @@ class CompareScreen extends StatelessWidget {
                 .where(FieldPath.documentId, whereIn: selectedIds)
                 .snapshots(),
             builder: (context, propertySnap) {
-              if (!propertySnap.hasData) {
+              if (propertySnap.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Unable to load compared properties: ${propertySnap.error}'),
+                  ),
+                );
+              }
+
+              if (propertySnap.connectionState == ConnectionState.waiting && !propertySnap.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              final queryDocs = propertySnap.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
               final docsById = {
-                for (final doc in propertySnap.data!.docs) doc.id: doc,
+                for (final doc in queryDocs) doc.id: doc,
               };
               final properties = selectedIds
                   .map((id) => docsById[id])

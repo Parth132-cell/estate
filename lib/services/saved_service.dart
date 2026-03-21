@@ -106,32 +106,18 @@ class SavedService {
   }
 
   Future<int> _comparisonCount() async {
-    final snapshot = await _saved
-        .where('userId', isEqualTo: _uid)
-        .where('forComparison', isEqualTo: true)
-        .count()
-        .get();
-    return snapshot.count ?? 0;
-  }
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> favoritesStream() {
-    return _saved
-        .where('userId', isEqualTo: _uid)
-        .where('isFavorite', isEqualTo: true)
-        .snapshots();
+    final snapshot = await _saved.where('userId', isEqualTo: _uid).get();
+    return snapshot.docs.where((doc) => doc.data()['forComparison'] == true).length;
   }
 
   Stream<List<String>> comparisonIds() {
-    return _saved
-        .where('userId', isEqualTo: _uid)
-        .where('forComparison', isEqualTo: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((d) => (d.data()['propertyId'] ?? '').toString())
-              .where((e) => e.isNotEmpty)
-              .toList(),
-        );
+    return _saved.where('userId', isEqualTo: _uid).snapshots().map(
+      (snapshot) => snapshot.docs
+          .where((doc) => doc.data()['forComparison'] == true)
+          .map((d) => (d.data()['propertyId'] ?? '').toString())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+    );
   }
 
   Stream<bool> isFavorite(String propertyId) {
