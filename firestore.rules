@@ -14,6 +14,15 @@ service cloud.firestore {
       return role in ['user', 'broker', 'admin'];
     }
 
+    function validSavedWrite(data) {
+      return data.userId == request.auth.uid
+        && data.propertyId is string
+        && data.propertyId.size() > 0
+        && data.isFavorite is bool
+        && data.forComparison is bool;
+    }
+
+
     function validPropertyCreate(data) {
       return data.title is string
         && data.title.size() >= 3
@@ -93,6 +102,18 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid || resource.data.brokerId == request.auth.uid);
       allow update: if signedIn() && resource.data.brokerId == request.auth.uid;
+    }
+
+
+    match /saved/{savedId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && validSavedWrite(request.resource.data);
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && validSavedWrite(request.resource.data)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.propertyId == resource.data.propertyId;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /users/{userId} {
