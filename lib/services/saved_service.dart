@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+enum ComparisonToggleResult { added, removed, limitReached }
+
 class SavedService {
+  static const int maxComparisonCount = 3;
+
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   String get _uid {
@@ -51,7 +55,7 @@ class SavedService {
     });
   }
 
-  Future<void> toggleComparison(String propertyId) async {
+  Future<ComparisonToggleResult> toggleComparison(String propertyId) async {
     final docRef = _saved.doc(_docId(propertyId));
     final doc = await docRef.get();
 
@@ -60,6 +64,13 @@ class SavedService {
       final currentFav = data['isFavorite'] == true;
       final currentCompare = data['forComparison'] == true;
       final newCompare = !currentCompare;
+
+      if (newCompare) {
+        final count = await _comparisonCount();
+        if (count >= maxComparisonCount) {
+          return ComparisonToggleResult.limitReached;
+        }
+      }
 
       if (!newCompare && !currentFav) {
         await docRef.delete();
@@ -73,7 +84,13 @@ class SavedService {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
-      return;
+
+      return newCompare ? ComparisonToggleResult.added : ComparisonToggleResult.removed;
+    }
+
+    final count = await _comparisonCount();
+    if (count >= maxComparisonCount) {
+      return ComparisonToggleResult.limitReached;
     }
 
     await docRef.set({
@@ -84,6 +101,17 @@ class SavedService {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    return ComparisonToggleResult.added;
+  }
+
+  Future<int> _comparisonCount() async {
+    final snapshot = await _saved
+        .where('userId', isEqualTo: _uid)
+        .where('forComparison', isEqualTo: true)
+        .count()
+        .get();
+    return snapshot.count ?? 0;
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> favoritesStream() {
@@ -98,7 +126,12 @@ class SavedService {
         .where('userId', isEqualTo: _uid)
         .where('forComparison', isEqualTo: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((d) => (d.data()['propertyId'] ?? '').toString()).where((e) => e.isNotEmpty).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((d) => (d.data()['propertyId'] ?? '').toString())
+              .where((e) => e.isNotEmpty)
+              .toList(),
+        );
   }
 
   Stream<bool> isFavorite(String propertyId) {
