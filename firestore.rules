@@ -22,6 +22,30 @@ service cloud.firestore {
         && data.forComparison is bool;
     }
 
+    function validLeadStatus(status) {
+      return status in ['new', 'contacted', 'closed'];
+    }
+
+    function validLeadPriority(priority) {
+      return priority in ['low', 'medium', 'high'];
+    }
+
+    function validLead(data) {
+      return data.brokerId is string
+        && data.buyerId is string
+        && data.name is string
+        && data.name.size() > 0
+        && data.phone is string
+        && data.phone.size() > 0
+        && validLeadStatus(data.status)
+        && validLeadPriority(data.priority)
+        && (!('followUpDate' in data) || data.followUpDate == null || data.followUpDate is timestamp)
+        && (!('lastContacted' in data) || data.lastContacted == null || data.lastContacted is timestamp)
+        && data.notes is list
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
 
     function validPropertyCreate(data) {
       return data.title is string
@@ -102,6 +126,22 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid || resource.data.brokerId == request.auth.uid);
       allow update: if signedIn() && resource.data.brokerId == request.auth.uid;
+    }
+
+    match /leads/{leadId} {
+      allow create: if signedIn()
+        && request.resource.data.brokerId is string
+        && request.resource.data.buyerId == request.auth.uid
+        && validLead(request.resource.data);
+      allow read: if signedIn()
+        && (resource.data.buyerId == request.auth.uid || resource.data.brokerId == request.auth.uid || isAdmin());
+      allow update: if signedIn()
+        && (resource.data.buyerId == request.auth.uid || resource.data.brokerId == request.auth.uid || isAdmin())
+        && request.resource.data.brokerId == resource.data.brokerId
+        && request.resource.data.buyerId == resource.data.buyerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validLead(request.resource.data);
+      allow delete: if signedIn() && (resource.data.brokerId == request.auth.uid || isAdmin());
     }
 
 
