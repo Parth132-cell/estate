@@ -1,20 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+enum ComparisonToggleResult { added, removed, limitReached }
+
 class SavedService {
+  static const int maxComparisonCount = 3;
+
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   String get _uid {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('User not authenticated');
+      throw Exception('Please login to use comparison');
     }
     return user.uid;
   }
 
-  CollectionReference<Map<String, dynamic>> get _saved => _db.collection('saved');
+  CollectionReference<Map<String, dynamic>> get _saved =>
+      _db.collection('users').doc(_uid).collection('favorites');
 
-  String _docId(String propertyId) => '${_uid}_$propertyId';
+  String _docId(String propertyId) => propertyId;
 
   Future<void> toggleFavorite(String propertyId) async {
     final docRef = _saved.doc(_docId(propertyId));
@@ -30,7 +35,6 @@ class SavedService {
         await docRef.delete();
       } else {
         await docRef.set({
-          'userId': _uid,
           'propertyId': propertyId,
           'isFavorite': newFav,
           'forComparison': currentCompare,
@@ -42,7 +46,6 @@ class SavedService {
     }
 
     await docRef.set({
-      'userId': _uid,
       'propertyId': propertyId,
       'isFavorite': true,
       'forComparison': false,
@@ -51,7 +54,7 @@ class SavedService {
     });
   }
 
-  Future<void> toggleComparison(String propertyId) async {
+  Future<ComparisonToggleResult> toggleComparison(String propertyId) async {
     final docRef = _saved.doc(_docId(propertyId));
     final doc = await docRef.get();
 
@@ -61,11 +64,14 @@ class SavedService {
       final currentCompare = data['forComparison'] == true;
       final newCompare = !currentCompare;
 
+      if (newCompare) {
+        await _freeComparisonSlotIfNeeded(excludingPropertyId: propertyId);
+      }
+
       if (!newCompare && !currentFav) {
         await docRef.delete();
       } else {
         await docRef.set({
-          'userId': _uid,
           'propertyId': propertyId,
           'isFavorite': currentFav,
           'forComparison': newCompare,
@@ -73,32 +79,73 @@ class SavedService {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
-      return;
+
+      return newCompare ? ComparisonToggleResult.added : ComparisonToggleResult.removed;
     }
 
+    await _freeComparisonSlotIfNeeded(excludingPropertyId: propertyId);
+
     await docRef.set({
-      'userId': _uid,
       'propertyId': propertyId,
       'isFavorite': false,
       'forComparison': true,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    return ComparisonToggleResult.added;
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> favoritesStream() {
-    return _saved
-        .where('userId', isEqualTo: _uid)
-        .where('isFavorite', isEqualTo: true)
-        .snapshots();
+  Future<void> _freeComparisonSlotIfNeeded({required String excludingPropertyId}) async {
+    final snapshot = await _saved.get();
+    final comparedDocs = snapshot.docs
+        .where((doc) {
+          final data = doc.data();
+          return data['forComparison'] == true && (data['propertyId']?.toString() ?? doc.id) != excludingPropertyId;
+        })
+        .toList()
+      ..sort((a, b) => _timestampFromDoc(a).compareTo(_timestampFromDoc(b)));
+
+    if (comparedDocs.length < maxComparisonCount) {
+      return;
+    }
+
+    final oldest = comparedDocs.first;
+    final data = oldest.data();
+    final isFavorite = data['isFavorite'] == true;
+
+    if (isFavorite) {
+      await oldest.reference.set({
+        'forComparison': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else {
+      await oldest.reference.delete();
+    }
+  }
+
+  int _timestampFromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    final updatedAt = data['updatedAt'];
+    if (updatedAt is Timestamp) return updatedAt.millisecondsSinceEpoch;
+    final createdAt = data['createdAt'];
+    if (createdAt is Timestamp) return createdAt.millisecondsSinceEpoch;
+    return 0;
   }
 
   Stream<List<String>> comparisonIds() {
-    return _saved
-        .where('userId', isEqualTo: _uid)
-        .where('forComparison', isEqualTo: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((d) => (d.data()['propertyId'] ?? '').toString()).where((e) => e.isNotEmpty).toList());
+    return _saved.snapshots().map((snapshot) {
+      final sorted = snapshot.docs
+          .where((doc) => doc.data()['forComparison'] == true)
+          .toList()
+        ..sort((a, b) => _timestampFromDoc(b).compareTo(_timestampFromDoc(a)));
+
+      return sorted
+          .map((d) => (d.data()['propertyId'] ?? d.id).toString())
+          .where((e) => e.isNotEmpty)
+          .take(maxComparisonCount)
+          .toList();
+    });
   }
 
   Stream<bool> isFavorite(String propertyId) {
