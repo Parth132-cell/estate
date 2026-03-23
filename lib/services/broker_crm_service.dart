@@ -18,18 +18,38 @@ class BrokerCrmService {
       final leads = leadSnap.docs;
       final deals = dealSnap.docs;
 
-      int hotLeads = 0;
-      int warmLeads = 0;
+      int highPriority = 0;
+      int mediumPriority = 0;
+      int lowPriority = 0;
+      int newLeads = 0;
       int contacted = 0;
-      int followUpsSet = 0;
+      int closed = 0;
+      int remindersDue = 0;
+      int leadsWithNotes = 0;
+
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+
       for (final doc in leads) {
         final data = doc.data();
         final priority = (data['priority'] ?? '').toString();
         final status = (data['status'] ?? '').toString();
-        if (priority == 'hot') hotLeads++;
-        if (priority == 'warm') warmLeads++;
+        final followUp = (data['followUpDate'] as Timestamp?)?.toDate();
+        final notes = data['notes'] as List<dynamic>? ?? [];
+
+        if (priority == 'high') highPriority++;
+        if (priority == 'medium') mediumPriority++;
+        if (priority == 'low') lowPriority++;
+
+        if (status == 'new') newLeads++;
         if (status == 'contacted') contacted++;
-        if (data['nextFollowUp'] != null) followUpsSet++;
+        if (status == 'closed') closed++;
+
+        if (followUp != null && !followUp.isAfter(startOfDay) && status != 'closed') {
+          remindersDue++;
+        }
+
+        if (notes.isNotEmpty) leadsWithNotes++;
       }
 
       int activeDeals = 0;
@@ -51,15 +71,21 @@ class BrokerCrmService {
 
       final totalLeads = leads.length;
       final contactedRate = totalLeads == 0 ? 0 : ((contacted * 100) / totalLeads).round();
+      final closeRate = totalLeads == 0 ? 0 : ((closed * 100) / totalLeads).round();
       final winRate = deals.isEmpty ? 0 : ((wonDeals * 100) / deals.length).round();
 
       return {
         'totalLeads': totalLeads,
-        'hotLeads': hotLeads,
-        'warmLeads': warmLeads,
+        'highPriority': highPriority,
+        'mediumPriority': mediumPriority,
+        'lowPriority': lowPriority,
+        'newLeads': newLeads,
         'contacted': contacted,
-        'followUpsSet': followUpsSet,
+        'closed': closed,
+        'leadsWithNotes': leadsWithNotes,
+        'remindersDue': remindersDue,
         'contactedRate': contactedRate,
+        'closeRate': closeRate,
         'activeDeals': activeDeals,
         'wonDeals': wonDeals,
         'rejectedDeals': rejectedDeals,

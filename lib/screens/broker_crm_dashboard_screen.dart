@@ -15,7 +15,7 @@ class BrokerCrmDashboardScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Broker CRM Dashboard')),
+      appBar: AppBar(title: const Text('Lead Analytics Dashboard')),
       body: StreamBuilder<Map<String, int>>(
         stream: BrokerCrmService().brokerKpis(user.uid),
         builder: (context, snapshot) {
@@ -40,11 +40,16 @@ class BrokerCrmDashboardScreen extends StatelessWidget {
                 mainAxisSpacing: 12,
                 children: [
                   _KpiCard('Total Leads', kpi['totalLeads'] ?? 0, Icons.people),
-                  _KpiCard('Hot Leads', kpi['hotLeads'] ?? 0, Icons.local_fire_department),
-                  _KpiCard('Warm Leads', kpi['warmLeads'] ?? 0, Icons.wb_sunny_outlined),
+                  _KpiCard('New Leads', kpi['newLeads'] ?? 0, Icons.fiber_new),
                   _KpiCard('Contacted', kpi['contacted'] ?? 0, Icons.call),
-                  _KpiCard('Follow-ups Set', kpi['followUpsSet'] ?? 0, Icons.event_available),
+                  _KpiCard('Closed', kpi['closed'] ?? 0, Icons.check_circle_outline),
+                  _KpiCard('High Priority', kpi['highPriority'] ?? 0, Icons.priority_high),
+                  _KpiCard('Medium Priority', kpi['mediumPriority'] ?? 0, Icons.drag_handle),
+                  _KpiCard('Low Priority', kpi['lowPriority'] ?? 0, Icons.low_priority),
+                  _KpiCard('Leads with Notes', kpi['leadsWithNotes'] ?? 0, Icons.sticky_note_2_outlined),
+                  _KpiCard('Reminders Due', kpi['remindersDue'] ?? 0, Icons.notifications_active_outlined),
                   _KpiCard('Contact Rate', kpi['contactedRate'] ?? 0, Icons.percent, suffix: '%'),
+                  _KpiCard('Close Rate', kpi['closeRate'] ?? 0, Icons.trending_up, suffix: '%'),
                 ],
               ),
               const SizedBox(height: 20),
