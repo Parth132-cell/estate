@@ -304,7 +304,7 @@ const SizedBox(height: 120),
 
                 await DealServices().createOffer(
                   propertyId: propertyId,
-                  brokerId: brokerId,
+                  sellerId: brokerId,
                   amount: amount,
                 );
 

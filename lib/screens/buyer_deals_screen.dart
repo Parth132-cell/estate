@@ -38,14 +38,29 @@ class BuyerDealsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Offer: ₹${deal['offerAmount']}",
+                        "Current Offer: ₹${deal['amount']}",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text("Status: ${deal['status']}"),
 
-                      if (deal['counterAmount'] != null)
-                        Text("Counter: ₹${deal['counterAmount']}"),
+                      if (deal['history'] is List && (deal['history'] as List).isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        const Text('History', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        ...((deal['history'] as List)
+                            .take(4)
+                            .map((entry) {
+                              final item = Map<String, dynamic>.from(entry as Map);
+                              final action = (item['action'] ?? 'update').toString();
+                              final amount = item['amount'];
+                              final status = item['status'];
+                              final detail = amount != null
+                                  ? '₹$amount'
+                                  : (status != null ? status.toString() : '');
+                              return Text('• $action ${detail.isNotEmpty ? '($detail)' : ''}');
+                            })),
+                      ],
 
                       /// 🔐 PAY TOKEN BUTTON (ONLY IF ACCEPTED)
                       if (deal['status'] == 'accepted') ...[
@@ -53,14 +68,13 @@ class BuyerDealsScreen extends StatelessWidget {
                         ElevatedButton(
                           child: const Text("Pay Token (10%)"),
                           onPressed: () async {
-                            final offerAmount = (deal['offerAmount'] as num)
-                                .toDouble();
+                            final offerAmount = (deal['amount'] as num).toDouble();
                             final tokenAmount = (offerAmount * 0.1).toInt();
 
                             await EscrowService().createEscrowWithPayment(
                               dealId: dealId,
                               propertyId: deal['propertyId'],
-                              brokerId: deal['brokerId'],
+                              brokerId: deal['sellerId'],
                               amount: tokenAmount,
                             );
 

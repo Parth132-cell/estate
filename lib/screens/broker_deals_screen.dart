@@ -21,10 +21,14 @@ class _BrokerDealsScreenState extends State<BrokerDealsScreen> {
     try {
       await DealServices().updateDealStatus(dealId, status);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update deal: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update deal: $e')));
     } finally {
       if (mounted) setState(() => _updatingDealId = null);
     }
@@ -112,15 +116,26 @@ class _BrokerDealsScreenState extends State<BrokerDealsScreen> {
               final doc = deals[index];
               final deal = doc.data();
               final status = (deal['status'] ?? 'pending').toString();
-              final counterAmount = deal['counterAmount'];
               final isUpdating = _updatingDealId == doc.id;
 
               return Card(
                 margin: const EdgeInsets.all(10),
                 child: ListTile(
-                  title: Text('Offer: ₹${deal['offerAmount'] ?? 0}'),
-                  subtitle: Text(
-                    'Status: $status${counterAmount != null ? ' • Counter: ₹$counterAmount' : ''}',
+                  title: Text('Offer: ₹${deal['amount'] ?? 0}'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Status: $status'),
+                      if (deal['history'] is List &&
+                          (deal['history'] as List).isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'History entries: ${(deal['history'] as List).length}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                    ],
                   ),
                   trailing: isUpdating
                       ? const SizedBox(
@@ -143,14 +158,24 @@ class _BrokerDealsScreenState extends State<BrokerDealsScreen> {
                                 successMessage: 'Deal rejected',
                               );
                             } else if (value == 'counter') {
-                              final start = (deal['offerAmount'] as num?)?.toInt() ?? 0;
+                              final start =
+                                  (deal['amount'] as num?)?.toInt() ?? 0;
                               await _showCounterDialog(doc.id, start);
                             }
                           },
                           itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'accept', child: Text('Accept')),
-                            PopupMenuItem(value: 'counter', child: Text('Counter Offer')),
-                            PopupMenuItem(value: 'reject', child: Text('Reject')),
+                            PopupMenuItem(
+                              value: 'accept',
+                              child: Text('Accept'),
+                            ),
+                            PopupMenuItem(
+                              value: 'counter',
+                              child: Text('Counter Offer'),
+                            ),
+                            PopupMenuItem(
+                              value: 'reject',
+                              child: Text('Reject'),
+                            ),
                           ],
                         ),
                 ),
