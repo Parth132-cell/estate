@@ -1,4 +1,3 @@
-import 'package:estatex_app/services/comparison_service.dart';
 import 'package:estatex_app/favorites/favorite_button.dart';
 import 'package:estatex_app/services/saved_service.dart';
 import 'package:flutter/material.dart';
@@ -174,12 +173,16 @@ class _FavoriteIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: FavoriteButton(propertyId: propertyId),
       ),
-      child: FavoriteButton(propertyId: propertyId),
     );
   }
 }
@@ -191,28 +194,45 @@ class _CompareIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final comparisonService = ComparisonService();
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: StreamBuilder<bool>(
+          stream: SavedService().isInComparison(propertyId),
+          builder: (context, snapshot) {
+            final selected = snapshot.data ?? false;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-      child: StreamBuilder<bool>(
-        stream: SavedService().isInComparison(propertyId),
-        builder: (context, snapshot) {
-          final selected = snapshot.data ?? false;
-
-          return IconButton(
-            icon: Icon(
-              Icons.compare_arrows,
-              color: selected ? Colors.blue : Colors.grey,
-            ),
-            onPressed: () {
-              SavedService().toggleComparison(propertyId);
-            },
-          );
-        },
+            return IconButton(
+              icon: Icon(
+                Icons.compare_arrows,
+                color: selected ? Colors.blue : Colors.grey,
+              ),
+              onPressed: () async {
+                try {
+                  final result = await SavedService().toggleComparison(propertyId);
+                  if (!context.mounted) return;
+                  if (result == ComparisonToggleResult.limitReached) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('You can compare up to 3 properties at once.'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Unable to update comparison: $e')),
+                  );
+                }
+              },
+            );
+          },
+        ),
       ),
     );
   }
