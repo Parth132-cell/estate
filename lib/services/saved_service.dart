@@ -11,14 +11,15 @@ class SavedService {
   String get _uid {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('User not authenticated');
+      throw Exception('Please login to use comparison');
     }
     return user.uid;
   }
 
-  CollectionReference<Map<String, dynamic>> get _saved => _db.collection('saved');
+  CollectionReference<Map<String, dynamic>> get _saved =>
+      _db.collection('users').doc(_uid).collection('favorites');
 
-  String _docId(String propertyId) => '${_uid}_$propertyId';
+  String _docId(String propertyId) => propertyId;
 
   Future<void> toggleFavorite(String propertyId) async {
     final docRef = _saved.doc(_docId(propertyId));
@@ -34,7 +35,6 @@ class SavedService {
         await docRef.delete();
       } else {
         await docRef.set({
-          'userId': _uid,
           'propertyId': propertyId,
           'isFavorite': newFav,
           'forComparison': currentCompare,
@@ -46,7 +46,6 @@ class SavedService {
     }
 
     await docRef.set({
-      'userId': _uid,
       'propertyId': propertyId,
       'isFavorite': true,
       'forComparison': false,
@@ -73,7 +72,6 @@ class SavedService {
         await docRef.delete();
       } else {
         await docRef.set({
-          'userId': _uid,
           'propertyId': propertyId,
           'isFavorite': currentFav,
           'forComparison': newCompare,
@@ -88,7 +86,6 @@ class SavedService {
     await _freeComparisonSlotIfNeeded(excludingPropertyId: propertyId);
 
     await docRef.set({
-      'userId': _uid,
       'propertyId': propertyId,
       'isFavorite': false,
       'forComparison': true,
@@ -100,11 +97,11 @@ class SavedService {
   }
 
   Future<void> _freeComparisonSlotIfNeeded({required String excludingPropertyId}) async {
-    final snapshot = await _saved.where('userId', isEqualTo: _uid).get();
+    final snapshot = await _saved.get();
     final comparedDocs = snapshot.docs
         .where((doc) {
           final data = doc.data();
-          return data['forComparison'] == true && (data['propertyId']?.toString() ?? '') != excludingPropertyId;
+          return data['forComparison'] == true && (data['propertyId']?.toString() ?? doc.id) != excludingPropertyId;
         })
         .toList()
       ..sort((a, b) => _timestampFromDoc(a).compareTo(_timestampFromDoc(b)));
@@ -137,14 +134,14 @@ class SavedService {
   }
 
   Stream<List<String>> comparisonIds() {
-    return _saved.where('userId', isEqualTo: _uid).snapshots().map((snapshot) {
+    return _saved.snapshots().map((snapshot) {
       final sorted = snapshot.docs
           .where((doc) => doc.data()['forComparison'] == true)
           .toList()
         ..sort((a, b) => _timestampFromDoc(b).compareTo(_timestampFromDoc(a)));
 
       return sorted
-          .map((d) => (d.data()['propertyId'] ?? '').toString())
+          .map((d) => (d.data()['propertyId'] ?? d.id).toString())
           .where((e) => e.isNotEmpty)
           .take(maxComparisonCount)
           .toList();
