@@ -23,18 +23,24 @@ class MyPropertiesScreen extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection('properties')
             .where('uploadedBy', isEqualTo: user.uid)
-            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(child: Text('Unable to load properties: ${snapshot.error}'));
           }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final docs = snapshot.data?.docs ?? [];
+          final docs = [...(snapshot.data?.docs ?? [])]
+            ..sort((a, b) {
+              final aTime = a.data()['createdAt'];
+              final bTime = b.data()['createdAt'];
+              final aMillis = aTime is Timestamp ? aTime.millisecondsSinceEpoch : 0;
+              final bMillis = bTime is Timestamp ? bTime.millisecondsSinceEpoch : 0;
+              return bMillis.compareTo(aMillis);
+            });
           if (docs.isEmpty) {
             return const Center(
               child: Text('You have not added any properties yet'),
