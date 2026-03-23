@@ -55,10 +55,21 @@ class FavoritesService implements FavoritesRepository {
   CollectionReference<Map<String, dynamic>> get _favoritesRef =>
       _firestore.collection('users').doc(_uid).collection('favorites');
 
+  bool _isFavoriteDoc(Map<String, dynamic> data) {
+    if (data['isFavorite'] is bool) {
+      return data['isFavorite'] == true;
+    }
+    return data['forComparison'] != true;
+  }
+
   @override
   Stream<Set<String>> watchFavoriteIds() {
     return _favoritesRef.snapshots().map(
-      (snapshot) => snapshot.docs.map((doc) => doc.id).toSet(),
+      (snapshot) => snapshot.docs
+          .where((doc) => _isFavoriteDoc(doc.data()))
+          .map((doc) => (doc.data()['propertyId'] ?? doc.id).toString())
+          .where((id) => id.isNotEmpty)
+          .toSet(),
     );
   }
 
@@ -68,15 +79,31 @@ class FavoritesService implements FavoritesRepository {
     required bool isFavorite,
   }) async {
     final docRef = _favoritesRef.doc(propertyId);
+    final doc = await docRef.get();
+    final existing = doc.data() ?? <String, dynamic>{};
+    final inComparison = existing['forComparison'] == true;
 
     if (!isFavorite) {
-      await docRef.delete();
+      if (inComparison) {
+        await docRef.set({
+          'propertyId': propertyId,
+          'isFavorite': false,
+          'forComparison': true,
+          'createdAt': existing['createdAt'] ?? FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else {
+        await docRef.delete();
+      }
       return;
     }
 
     await docRef.set({
       'propertyId': propertyId,
-      'createdAt': FieldValue.serverTimestamp(),
+      'isFavorite': true,
+      'forComparison': inComparison,
+      'createdAt': existing['createdAt'] ?? FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
@@ -97,7 +124,7 @@ class FavoritesService implements FavoritesRepository {
 
     final items = <FavoritePropertyItem>[];
 
-    for (final doc in docs) {
+    for (final doc in docs.where((d) => _isFavoriteDoc(d.data()))) {
       final propertyId = (doc.data()['propertyId'] ?? doc.id).toString();
       final propertyDoc =
           await _firestore.collection('properties').doc(propertyId).get();
