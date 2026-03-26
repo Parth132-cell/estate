@@ -1,11 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class EscrowState {
+  static const String initiated = 'initiated';
+  static const String paymentPending = 'payment_pending';
+  static const String completed = 'completed';
+  static const String cancelled = 'cancelled';
+
+  static const Set<String> all = {
+    initiated,
+    paymentPending,
+    completed,
+    cancelled,
+  };
+}
+
 class EscrowTransaction {
   final String id;
   final String dealId;
   final String buyerId;
   final double amount;
-  final String status; // held | released | refunded
+  final String status;
   final DateTime createdAt;
 
   const EscrowTransaction({
@@ -24,12 +38,11 @@ class EscrowTransaction {
         dealId: '',
         buyerId: '',
         amount: 0.0,
-        status: 'held',
+        status: EscrowState.initiated,
         createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       );
     }
 
-    // Safe DateTime parsing
     DateTime created;
     final rawDate = map['createdAt'];
 
@@ -41,12 +54,16 @@ class EscrowTransaction {
       created = DateTime.fromMillisecondsSinceEpoch(0);
     }
 
+    final status = (map['status'] ?? EscrowState.initiated).toString();
+
     return EscrowTransaction(
       id: id,
       dealId: map['dealId'] ?? '',
       buyerId: map['buyerId'] ?? '',
       amount: (map['amount'] is num) ? (map['amount'] as num).toDouble() : 0.0,
-      status: map['status'] ?? 'held',
+      status: EscrowState.all.contains(status)
+          ? status
+          : EscrowState.initiated,
       createdAt: created,
     );
   }
