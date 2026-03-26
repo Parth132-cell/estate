@@ -44,7 +44,7 @@ class AdminEscrowScreen extends StatelessWidget {
                       Text("Status: ${data['status']}"),
                     ],
                   ),
-                  trailing: data['status'] == 'held'
+                  trailing: data['status'] == 'payment_pending'
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -84,7 +84,7 @@ class AdminEscrowScreen extends StatelessWidget {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        "Escrow released & agreement created",
+                                        "Escrow completed & agreement created",
                                       ),
                                     ),
                                   );
@@ -107,7 +107,7 @@ class AdminEscrowScreen extends StatelessWidget {
 
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text("Escrow refunded"),
+                                    content: Text("Escrow cancelled"),
                                   ),
                                 );
                               },
@@ -116,7 +116,7 @@ class AdminEscrowScreen extends StatelessWidget {
                         )
                       : Chip(
                           label: Text(data['status']),
-                          backgroundColor: data['status'] == 'released'
+                          backgroundColor: data['status'] == 'completed'
                               ? Colors.green
                               : Colors.orange,
                         ),

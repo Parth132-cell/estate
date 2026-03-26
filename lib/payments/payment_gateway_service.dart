@@ -21,23 +21,44 @@ class PaymentResult {
   bool get isSuccess => state == PaymentState.success;
 }
 
+/// Supported payment providers.
+class PaymentProvider {
+  static const String stripe = 'stripe';
+  static const String razorpay = 'razorpay';
+
+  static const Set<String> supported = {stripe, razorpay};
+}
+
 /// Phase-1 provider abstraction.
-/// Replace internals with Razorpay/Stripe SDK + backend verification.
+/// Replace internals with Stripe/Razorpay SDK + backend verification.
 class PaymentGatewayService {
   final Random _random = Random();
 
   Future<PaymentResult> payTokenAmount({
     required int amount,
-    String provider = 'mock_gateway',
+    required String provider,
   }) async {
+    if (!PaymentProvider.supported.contains(provider)) {
+      throw ArgumentError('Unsupported payment provider: $provider');
+    }
+
     await Future.delayed(const Duration(milliseconds: 800));
 
     final roll = _random.nextInt(100);
-    final txId = 'TXN_${DateTime.now().millisecondsSinceEpoch}';
+    final txId = '${provider.toUpperCase()}_${DateTime.now().millisecondsSinceEpoch}';
 
-    if (roll < 85) {
+    if (roll < 80) {
       return PaymentResult(
         state: PaymentState.success,
+        transactionId: txId,
+        provider: provider,
+        amount: amount,
+      );
+    }
+
+    if (roll < 92) {
+      return PaymentResult(
+        state: PaymentState.pending,
         transactionId: txId,
         provider: provider,
         amount: amount,
@@ -53,13 +74,21 @@ class PaymentGatewayService {
     );
   }
 
+  Future<PaymentResult> payWithStripe({required int amount}) {
+    return payTokenAmount(amount: amount, provider: PaymentProvider.stripe);
+  }
+
+  Future<PaymentResult> payWithRazorpay({required int amount}) {
+    return payTokenAmount(amount: amount, provider: PaymentProvider.razorpay);
+  }
+
   Future<PaymentState> verifyTransaction(String transactionId) async {
     await Future.delayed(const Duration(milliseconds: 400));
 
     // Phase-1 mocked verification.
     final roll = _random.nextInt(100);
-    if (roll < 80) return PaymentState.success;
-    if (roll < 90) return PaymentState.pending;
+    if (roll < 78) return PaymentState.success;
+    if (roll < 93) return PaymentState.pending;
     return PaymentState.failed;
   }
 }
