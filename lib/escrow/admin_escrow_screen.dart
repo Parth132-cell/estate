@@ -71,13 +71,13 @@ class AdminEscrowScreen extends StatelessWidget {
                                   if (dealData == null) return;
 
                                   final dealBuyerId = dealData['buyerId'];
-                                  final dealBrokerId = dealData['brokerId'];
+                                  final dealSellerId = (dealData['sellerId'] ?? dealData['brokerId']);
 
                                   // 3️⃣ Create agreement
                                   await AgreementService().createAgreement(
                                     dealId: data['dealId'],
                                     buyerId: dealBuyerId,
-                                    brokerId: dealBrokerId,
+                                    sellerId: dealSellerId,
                                   );
 
                                   // 4️⃣ Feedback
