@@ -8,13 +8,6 @@ class EscrowService {
   final _db = FirebaseFirestore.instance;
   final PaymentGatewayService _paymentGatewayService = PaymentGatewayService();
 
-  static const Map<String, Set<String>> _allowedTransitions = {
-    EscrowState.initiated: {EscrowState.paymentPending, EscrowState.cancelled},
-    EscrowState.paymentPending: {EscrowState.completed, EscrowState.cancelled},
-    EscrowState.completed: {},
-    EscrowState.cancelled: {},
-  };
-
   String get _uid {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -143,7 +136,7 @@ class EscrowService {
     required String action,
     Map<String, dynamic>? metadata,
   }) async {
-    if (!EscrowState.all.contains(nextState)) {
+    if (!EscrowState.isValid(nextState)) {
       throw Exception('Invalid escrow state: $nextState');
     }
 
@@ -165,8 +158,7 @@ class EscrowService {
         return;
       }
 
-      final allowed = _allowedTransitions[currentState] ?? {};
-      if (!allowed.contains(nextState)) {
+      if (!EscrowState.canTransition(from: currentState, to: nextState)) {
         throw Exception('Invalid transition: $currentState -> $nextState');
       }
 
@@ -185,6 +177,17 @@ class EscrowService {
         metadata: metadata,
       );
     }
+  }
+
+
+  /// Escrow audit trail stream ordered by most recent first.
+  Stream<QuerySnapshot<Map<String, dynamic>>> auditLogs(String escrowId) {
+    return _db
+        .collection('escrow')
+        .doc(escrowId)
+        .collection('audit_logs')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   /// Buyer Escrow
