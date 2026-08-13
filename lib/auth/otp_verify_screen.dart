@@ -1,4 +1,6 @@
 import 'package:estatex_app/auth/auth_controller.dart';
+import 'package:estatex_app/home/home_screen.dart';
+import 'package:estatex_app/navigation/main_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sms_autofill/sms_autofill.dart';
@@ -10,7 +12,8 @@ class OtpVerifyScreen extends ConsumerStatefulWidget {
   ConsumerState<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
 }
 
-class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> with CodeAutoFill {
+class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen>
+    with CodeAutoFill {
   final TextEditingController _otpController = TextEditingController();
 
   @override
@@ -39,7 +42,8 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> with CodeAuto
     final controller = ref.read(authControllerProvider.notifier);
 
     ref.listen(authControllerProvider, (previous, next) {
-      if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
+      if (next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(next.errorMessage!)));
@@ -95,13 +99,22 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> with CodeAuto
                     : () async {
                         final success = await controller.verifyOtp();
                         if (!context.mounted || !success) return;
-                        Navigator.popUntil(context, (route) => route.isFirst);
+                        // Navigator.popUntil(context, (route) => route.isFirst);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MainNavigation(),
+                          ),
+                        );
                       },
                 child: state.isLoading
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Verify'),
               ),

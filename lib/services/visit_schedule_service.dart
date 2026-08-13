@@ -32,7 +32,6 @@ class VisitScheduleService {
     return _db
         .collection('visit_requests')
         .where('buyerId', isEqualTo: _uid)
-        .orderBy('scheduledAt', descending: false)
         .snapshots();
   }
 
@@ -40,7 +39,6 @@ class VisitScheduleService {
     return _db
         .collection('visit_requests')
         .where('brokerId', isEqualTo: _uid)
-        .orderBy('scheduledAt', descending: false)
         .snapshots();
   }
 

@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:estatex_app/auth/auth_service.dart';
 import 'package:estatex_app/auth/auth_state.dart';
+import 'package:estatex_app/auth/user_profile_defaults.dart';
+import 'package:estatex_app/services/app_analytics_service.dart';
+import 'package:estatex_app/services/app_monitoring_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 enum AuthStep { phoneInput, otpInput, authenticated }
 
@@ -78,10 +82,12 @@ final authControllerProvider =
     });
 
 class AuthController extends StateNotifier<AuthUiState> {
-  AuthController({required AuthGateway authService, required FirebaseFirestore db})
-      : _authService = authService,
-        _db = db,
-        super(const AuthUiState());
+  AuthController({
+    required AuthGateway authService,
+    required FirebaseFirestore db,
+  }) : _authService = authService,
+       _db = db,
+       super(const AuthUiState());
 
   final AuthGateway _authService;
   final FirebaseFirestore _db;
@@ -92,17 +98,39 @@ class AuthController extends StateNotifier<AuthUiState> {
   void bindAuthState() {
     _authSub ??= _authService.authStateChanges().listen((user) async {
       if (user == null) {
+        unawaited(AppAnalyticsService.instance.clearCurrentUser());
+        unawaited(AppMonitoringService.instance.clearCurrentUser());
         state = state.copyWith(user: null, step: AuthStep.phoneInput);
         return;
       }
 
-      final profile = await _ensureUserProfile(user);
-      state = state.copyWith(
-        user: profile,
-        step: AuthStep.authenticated,
-        isLoading: false,
-        clearError: true,
-      );
+      try {
+        final profile = await _ensureUserProfile(user);
+        await AppAnalyticsService.instance.setCurrentUser(
+          userId: user.uid,
+          role: profile.role,
+        );
+        await AppMonitoringService.instance.setCurrentUser(
+          userId: user.uid,
+          role: profile.role,
+        );
+        state = state.copyWith(
+          user: profile,
+          step: AuthStep.authenticated,
+          isLoading: false,
+          clearError: true,
+        );
+      } on FirebaseException catch (_) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Unable to load your account profile right now.',
+        );
+      } catch (_) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Unable to finish sign in. Please try again.',
+        );
+      }
     });
   }
 
@@ -130,6 +158,9 @@ class AuthController extends StateNotifier<AuthUiState> {
 
     try {
       final session = await _authService.sendOtp(phoneNumber: state.e164Phone);
+      await AppAnalyticsService.instance.logOtpRequested(
+        countryCode: state.countryCode,
+      );
       _startResendTimer();
       state = state.copyWith(
         verificationId: session.verificationId,
@@ -210,11 +241,9 @@ class AuthController extends StateNotifier<AuthUiState> {
       }
 
       await _ensureUserProfile(result.user!);
+      await AppAnalyticsService.instance.logOtpVerified();
 
-      state = state.copyWith(
-        isLoading: false,
-        step: AuthStep.authenticated,
-      );
+      state = state.copyWith(isLoading: false, step: AuthStep.authenticated);
       return true;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(
@@ -253,15 +282,7 @@ class AuthController extends StateNotifier<AuthUiState> {
     final doc = await userRef.get();
 
     if (!doc.exists) {
-      await userRef.set({
-        'name': '',
-        'phone': user.phoneNumber,
-        'role': 'user',
-        'profileType': 'individual',
-        'canUploadProperty': true,
-        'canHostLiveTour': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await userRef.set(buildUserProfileSeed(user), SetOptions(merge: true));
     }
 
     final fresh = await userRef.get();

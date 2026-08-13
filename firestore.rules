@@ -1,170 +1,335 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function isSignedIn() {
       return request.auth != null;
     }
 
+    function uid() {
+      return request.auth.uid;
+    }
+
     function isAdmin() {
-      return signedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin';
     }
 
-    function validRole(role) {
-      return role in ['user', 'broker', 'admin'];
-    }
-
-    function validSavedWrite(data) {
-      return data.userId == request.auth.uid
-        && data.propertyId is string
-        && data.propertyId.size() > 0
-        && data.isFavorite is bool
-        && data.forComparison is bool;
-    }
-
-
-    function validPropertyCreate(data) {
-      return data.title is string
-        && data.title.size() >= 3
-        && data.price is int
-        && data.price > 0
-        && data.city is string
-        && data.city.size() >= 2
-        && data.bhk is int
-        && data.bhk > 0
-        && data.imageUrls is list
-        && data.imageUrls.size() > 0
-        && data.status == 'pending'
-        && data.verificationStatus == 'pending'
-        && data.createdBy == request.auth.uid;
-    }
-
-    function ownerCanUpdateProperty() {
-      return resource.data.uploadedBy == request.auth.uid
-        && request.resource.data.verificationStatus == resource.data.verificationStatus
-        && request.resource.data.status == resource.data.status
-        && request.resource.data.rejectionReason == resource.data.rejectionReason
-        && request.resource.data.moderatedBy == resource.data.moderatedBy
-        && request.resource.data.moderatedAt == resource.data.moderatedAt;
-    }
-
-    function validAdminModerationUpdate() {
-      return isAdmin()
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          'verificationStatus',
-          'status',
-          'rejectionReason',
-          'moderatedBy',
-          'moderatedAt'
-        ])
-        && request.resource.data.verificationStatus in ['approved', 'rejected']
-        && request.resource.data.status == request.resource.data.verificationStatus
-        && request.resource.data.moderatedBy == request.auth.uid
-        && request.resource.data.moderatedAt is timestamp
-        && (
-          (request.resource.data.verificationStatus == 'approved'
-            && !(request.resource.data.keys().hasAny(['rejectionReason'])) )
-          ||
-          (request.resource.data.verificationStatus == 'rejected'
-            && request.resource.data.rejectionReason is string
-            && request.resource.data.rejectionReason.size() > 0)
-        );
-    }
-
-    match /properties/{propertyId} {
-      allow read: if true;
-      allow create: if signedIn() && validPropertyCreate(request.resource.data);
-      allow update: if signedIn() && (ownerCanUpdateProperty() || validAdminModerationUpdate());
-      allow delete: if signedIn() && resource.data.uploadedBy == request.auth.uid;
-    }
-
-    match /activities/{activityId} {
-      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    match /property_audit_logs/{auditId} {
-      allow create: if isAdmin() && request.resource.data.performedBy == request.auth.uid;
-      allow read: if isAdmin();
-    }
-
-    match /notifications/{notificationId} {
-      allow create: if isAdmin()
-        || (signedIn()
-          && request.resource.data.actorId == request.auth.uid
-          && request.resource.data.userId is string
-          && request.resource.data.type is string
-          && request.resource.data.title is string
-          && request.resource.data.message is string
-          && request.resource.data.read is bool);
-      allow read: if signedIn() && resource.data.userId == request.auth.uid;
-      allow update: if signedIn()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['read', 'readAt'])
-        && request.resource.data.read is bool;
-    }
-
-    match /visit_requests/{requestId} {
-      allow create: if signedIn() && request.resource.data.buyerId == request.auth.uid;
-      allow read: if signedIn() &&
-        (resource.data.buyerId == request.auth.uid || resource.data.brokerId == request.auth.uid);
-      allow update: if signedIn() && resource.data.brokerId == request.auth.uid;
-    }
-
-
-
-    match /offers/{offerId} {
-      allow create: if signedIn()
-        && request.resource.data.buyerId == request.auth.uid
-        && request.resource.data.sellerId is string
-        && request.resource.data.propertyId is string
-        && request.resource.data.amount is int
-        && request.resource.data.amount > 0
-        && request.resource.data.status == 'pending'
-        && request.resource.data.history is list;
-
-      allow read: if signedIn()
-        && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
-
-      allow update: if signedIn()
-        && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid)
-        && request.resource.data.propertyId == resource.data.propertyId
-        && request.resource.data.buyerId == resource.data.buyerId
-        && request.resource.data.sellerId == resource.data.sellerId
-        && request.resource.data.amount is int
-        && request.resource.data.amount > 0
-        && request.resource.data.history is list;
-    }
-
-    match /saved/{savedId} {
-      allow read: if signedIn() && resource.data.userId == request.auth.uid;
-      allow create: if signedIn() && validSavedWrite(request.resource.data);
-      allow update: if signedIn()
-        && resource.data.userId == request.auth.uid
-        && validSavedWrite(request.resource.data)
-        && request.resource.data.userId == resource.data.userId
-        && request.resource.data.propertyId == resource.data.propertyId;
-      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
-    }
-
+    // ── users ─────────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if true;
-      allow create: if signedIn()
-        && request.auth.uid == userId
-        && validRole(request.resource.data.role)
-        && request.resource.data.phone is string;
-      allow update: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.createdAt == resource.data.createdAt;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && uid() == userId;
+      allow update: if isSignedIn() && (uid() == userId || isAdmin());
+      allow delete: if isAdmin();
 
+      // FCM tokens — only the owner writes their own tokens
+      match /fcmTokens/{tokenId} {
+        allow read: if isSignedIn() && uid() == userId;
+        allow write: if isSignedIn() && uid() == userId;
+      }
+
+      // Favorites — only the owner reads/writes
       match /favorites/{propertyId} {
-        allow read, write: if signedIn() && request.auth.uid == userId;
+        allow read: if isSignedIn() && uid() == userId;
+        allow write: if isSignedIn() && uid() == userId;
       }
     }
 
-    match /{document=**} {
-      allow read, write: if false;
+    // ── properties ────────────────────────────────────────────────────────────
+    match /properties/{propertyId} {
+      // Public read — listings are visible to everyone
+      allow read: if true;
+      // Any signed-in user can list a property
+      allow create: if isSignedIn();
+      // Only owner or admin can update
+      allow update: if isSignedIn() && (
+        resource.data.uploadedBy == uid() ||
+        resource.data.createdBy == uid() ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── offers / deals ────────────────────────────────────────────────────────
+    // FIX: Separate list and get so .where() queries work for buyers/sellers
+    match /offers/{offerId} {
+      // allow list (for .where() queries like buyerDeals, brokerDeals)
+      allow list: if isSignedIn();
+
+      // allow get (single document read)
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.sellerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+
+      // Any signed-in user can create an offer
+      allow create: if isSignedIn();
+
+      // Only parties to the deal can update
+      allow update: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.sellerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // ── escrow ────────────────────────────────────────────────────────────────
+    match /escrow/{escrowId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      // Only admin / Cloud Functions update escrow (release/refund)
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── escrows (alternate name used by some services) ────────────────────────
+    match /escrows/{escrowId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── platform_fees — EstateX revenue records ───────────────────────────────
+    match /platform_fees/{feeId} {
+      allow read: if isAdmin();
+      // Created by buyer client when paying token
+      allow create: if isSignedIn();
+      // Only admin marks as collected
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── agreements ────────────────────────────────────────────────────────────
+    match /agreements/{agreementId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.sellerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.sellerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow delete: if false;
+    }
+
+    // ── leads ─────────────────────────────────────────────────────────────────
+    match /leads/{leadId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.brokerId == uid() ||
+        resource.data.buyerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.brokerId == uid() || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.brokerId == uid() || isAdmin()
+      );
+    }
+
+    // ── reviews ───────────────────────────────────────────────────────────────
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() &&
+        request.resource.data.reviewerId == uid();
+      allow update: if false;
+      allow delete: if isSignedIn() && (
+        resource.data.reviewerId == uid() || isAdmin()
+      );
+    }
+
+    // ── disputes ──────────────────────────────────────────────────────────────
+    match /disputes/{disputeId} {
+      allow list: if isAdmin();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.sellerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── fraud_alerts ──────────────────────────────────────────────────────────
+    match /fraud_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── admin_metrics_daily ───────────────────────────────────────────────────
+    // Non-admin writes silently blocked here so native SDK stops retrying
+    match /admin_metrics_daily/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── property_audit_logs ───────────────────────────────────────────────────
+    match /property_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── notifications ─────────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      // List own notifications
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && resource.data.userId == uid();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.userId == uid();
+      allow delete: if isSignedIn() && resource.data.userId == uid();
+    }
+
+    // ── activities ────────────────────────────────────────────────────────────
+    match /activities/{activityId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && resource.data.userId == uid();
+      allow create: if isSignedIn();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── saved_searches ────────────────────────────────────────────────────────
+    match /saved_searches/{searchId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && resource.data.userId == uid();
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == uid();
+      allow update: if isSignedIn() && resource.data.userId == uid();
+      allow delete: if isSignedIn() && resource.data.userId == uid();
+    }
+
+    // ── visit_requests ────────────────────────────────────────────────────────
+    match /visit_requests/{requestId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && resource.data.buyerId == uid();
+    }
+
+    // ── live_tours ────────────────────────────────────────────────────────────
+    match /live_tours/{tourId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.hostId == uid() || isAdmin()
+      );
+      allow delete: if isSignedIn() && resource.data.hostId == uid();
+    }
+
+    // ── chat_rooms ────────────────────────────────────────────────────────────
+    // FIX: CREATE must use request.resource.data (not resource.data which is null on create)
+    match /chat_rooms/{chatRoomId} {
+      allow list: if isSignedIn();
+
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+
+      // FIX: use request.resource.data for create checks
+      allow create: if isSignedIn() && (
+        request.resource.data.buyerId == uid() ||
+        request.resource.data.brokerId == uid()
+      );
+
+      allow update: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+
+      allow delete: if false;
+
+      // messages subcollection
+      // FIX: simplified — check senderId matches uid, no expensive get() call
+      match /messages/{messageId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+
+        allow create: if isSignedIn() &&
+          request.resource.data.senderId == uid();
+
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // ── callback_requests ─────────────────────────────────────────────────────
+    match /callback_requests/{requestId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.buyerId == uid() ||
+        request.resource.data.brokerId == uid()
+      );
+      allow update: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow delete: if false;
+    }
+
+    // ── admin_notifications ───────────────────────────────────────────────────
+    match /admin_notifications/{notifId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── payments ──────────────────────────────────────────────────────────────
+    match /payments/{paymentId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.buyerId == uid() ||
+        resource.data.brokerId == uid() ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
   }
 }

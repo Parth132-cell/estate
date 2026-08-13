@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:estatex_app/contact/contact_chat_screen.dart';
 import 'package:estatex_app/services/lead_services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,8 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
         return Colors.blue;
       case 'contacted':
         return Colors.orange;
+      case 'negotiation':
+        return Colors.deepPurple;
       case 'closed':
         return Colors.green;
       default:
@@ -44,6 +47,7 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
   Future<void> _createLead(String brokerId) async {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
+    // PRIVACY: phone stored internally but never shown in UI
     final phoneController = TextEditingController();
     String priority = 'medium';
     DateTime? followUpDate;
@@ -51,15 +55,19 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
     final created = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Padding(
               padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
               ),
               child: Form(
                 key: formKey,
@@ -69,67 +77,102 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
                   children: [
                     const Text(
                       'Add Lead',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     TextFormField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Name'),
-                      validator: (value) => value == null || value.trim().isEmpty
-                          ? 'Name is required'
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        labelText: 'Full name',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Name required'
                           : null,
                     ),
+                    const SizedBox(height: 10),
+                    // Phone stored internally for broker's own CRM use
+                    // but NEVER displayed in buyer-facing screens
                     TextFormField(
                       controller: phoneController,
-                      decoration: const InputDecoration(labelText: 'Phone'),
                       keyboardType: TextInputType.phone,
-                      validator: (value) => value == null || value.trim().isEmpty
-                          ? 'Phone is required'
+                      decoration: InputDecoration(
+                        labelText: 'Phone (internal use only)',
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                        helperText: 'Stored privately. Never shown to buyers.',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Phone required'
                           : null,
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       value: priority,
-                      decoration: const InputDecoration(labelText: 'Priority'),
+                      decoration: InputDecoration(
+                        labelText: 'Priority',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                       items: LeadService.priorities
-                          .map((item) => DropdownMenuItem(
-                                value: item,
-                                child: Text(item),
-                              ))
+                          .map(
+                            (item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(
+                                item[0].toUpperCase() + item.substring(1),
+                              ),
+                            ),
+                          )
                           .toList(),
-                      onChanged: (value) {
-                        setSheetState(() => priority = value ?? 'medium');
-                      },
+                      onChanged: (value) =>
+                          setSheetState(() => priority = value ?? 'medium'),
                     ),
                     const SizedBox(height: 10),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.event_outlined),
                       title: const Text('Follow-up date'),
                       subtitle: Text(
                         followUpDate == null
-                            ? 'Optional'
-                            : '${followUpDate!.year}-${followUpDate!.month.toString().padLeft(2, '0')}-${followUpDate!.day.toString().padLeft(2, '0')}',
+                            ? 'Optional — tap to set'
+                            : '${followUpDate!.day}/${followUpDate!.month}/${followUpDate!.year}',
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.event),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                DateTime.now().add(const Duration(days: 1)),
-                            firstDate: DateTime.now(),
-                            lastDate:
-                                DateTime.now().add(const Duration(days: 365)),
-                          );
-                          if (picked == null) return;
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now().add(
+                            const Duration(days: 1),
+                          ),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                        );
+                        if (picked != null) {
                           setSheetState(() => followUpDate = picked);
-                        },
-                      ),
+                        }
+                      },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         onPressed: () async {
                           if (!formKey.currentState!.validate()) return;
                           await LeadService().createManualLead(
@@ -142,7 +185,10 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
                           if (!context.mounted) return;
                           Navigator.pop(context, true);
                         },
-                        child: const Text('Create Lead'),
+                        child: const Text(
+                          'Create Lead',
+                          style: TextStyle(fontSize: 15),
+                        ),
                       ),
                     ),
                   ],
@@ -156,7 +202,10 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
 
     if (created == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lead created')),
+        const SnackBar(
+          content: Text('Lead created'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -167,13 +216,16 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
       await LeadService().updateStatus(leadId, status);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Status updated to $status')),
+        SnackBar(
+          content: Text('Status → ${status.toUpperCase()}'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {
       if (mounted) setState(() => _updatingLeadId = null);
     }
@@ -185,13 +237,16 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
       await LeadService().updatePriority(leadId, priority);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Priority set to ${priority.toUpperCase()}')),
+        SnackBar(
+          content: Text('Priority → ${priority.toUpperCase()}'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update priority: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {
       if (mounted) setState(() => _updatingLeadId = null);
     }
@@ -212,13 +267,16 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
       await LeadService().setFollowUp(leadId, picked);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Follow-up date updated')),
+        const SnackBar(
+          content: Text('Follow-up date updated'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to set follow-up: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {
       if (mounted) setState(() => _updatingLeadId = null);
     }
@@ -234,7 +292,11 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
           controller: noteController,
           minLines: 3,
           maxLines: 5,
-          decoration: const InputDecoration(hintText: 'Enter note'),
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'What did you discuss?',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
@@ -248,7 +310,6 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
         ],
       ),
     );
-
     if (added != true) return;
 
     setState(() => _updatingLeadId = leadId);
@@ -256,22 +317,25 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
       await LeadService().addNote(leadId: leadId, note: noteController.text);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Note added')),
+        const SnackBar(
+          content: Text('Note added'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add note: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {
       if (mounted) setState(() => _updatingLeadId = null);
     }
+    noteController.dispose();
   }
 
   bool _matchesFilters(Map<String, dynamic> data) {
     final status = (data['status'] ?? 'new').toString();
     final priority = (data['priority'] ?? 'medium').toString();
-
     final statusOk = _statusFilter == 'all' || status == _statusFilter;
     final priorityOk = _priorityFilter == 'all' || priority == _priorityFilter;
     return statusOk && priorityOk;
@@ -301,16 +365,16 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
               child: Text('Unable to load leads: ${snapshot.error}'),
             );
           }
-
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final leads = snapshot.data?.docs ?? [];
-          final filteredLeads =
-              leads.where((doc) => _matchesFilters(doc.data())).toList();
+          final filtered = leads
+              .where((doc) => _matchesFilters(doc.data()))
+              .toList();
           final now = DateTime.now();
-          final reminders = filteredLeads.where((doc) {
+          final reminders = filtered.where((doc) {
             final data = doc.data();
             final status = (data['status'] ?? '').toString();
             final followUp = (data['followUpDate'] as Timestamp?)?.toDate();
@@ -319,49 +383,97 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
           }).toList();
 
           if (leads.isEmpty) {
-            return const Center(child: Text('No leads yet'));
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('No leads yet', style: TextStyle(fontSize: 16)),
+                  SizedBox(height: 6),
+                  Text(
+                    'Tap + Add Lead to get started',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
           }
 
           return Column(
             children: [
+              // Filters
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
                 child: Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _statusFilter,
-                        decoration: const InputDecoration(labelText: 'Status filter'),
+                        isDense: true,
+                        decoration: InputDecoration(
+                          labelText: 'Status',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                         items: const [
-                          DropdownMenuItem(value: 'all', child: Text('All statuses')),
+                          DropdownMenuItem(value: 'all', child: Text('All')),
                           DropdownMenuItem(value: 'new', child: Text('New')),
-                          DropdownMenuItem(value: 'contacted', child: Text('Contacted')),
-                          DropdownMenuItem(value: 'closed', child: Text('Closed')),
+                          DropdownMenuItem(
+                            value: 'contacted',
+                            child: Text('Contacted'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'negotiation',
+                            child: Text('Negotiation'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'closed',
+                            child: Text('Closed'),
+                          ),
                         ],
-                        onChanged: (value) {
-                          setState(() => _statusFilter = value ?? 'all');
-                        },
+                        onChanged: (v) =>
+                            setState(() => _statusFilter = v ?? 'all'),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _priorityFilter,
-                        decoration: const InputDecoration(labelText: 'Priority filter'),
+                        isDense: true,
+                        decoration: InputDecoration(
+                          labelText: 'Priority',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                         items: const [
-                          DropdownMenuItem(value: 'all', child: Text('All priorities')),
+                          DropdownMenuItem(value: 'all', child: Text('All')),
                           DropdownMenuItem(value: 'high', child: Text('High')),
-                          DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                          DropdownMenuItem(
+                            value: 'medium',
+                            child: Text('Medium'),
+                          ),
                           DropdownMenuItem(value: 'low', child: Text('Low')),
                         ],
-                        onChanged: (value) {
-                          setState(() => _priorityFilter = value ?? 'all');
-                        },
+                        onChanged: (v) =>
+                            setState(() => _priorityFilter = v ?? 'all'),
                       ),
                     ),
                   ],
                 ),
               ),
+
+              // Reminder banner
               if (reminders.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -373,34 +485,48 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.notifications_active, color: Colors.amber),
+                      const Icon(
+                        Icons.notifications_active,
+                        color: Colors.amber,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${reminders.length} lead reminder(s) due for follow-up today or earlier.',
+                          '${reminders.length} follow-up(s) due today or overdue',
                         ),
                       ),
                     ],
                   ),
                 ),
+
+              // List
               Expanded(
-                child: filteredLeads.isEmpty
-                    ? const Center(child: Text('No leads match the selected filters'))
+                child: filtered.isEmpty
+                    ? const Center(child: Text('No leads match filters'))
                     : ListView.builder(
-                        itemCount: filteredLeads.length,
+                        padding: const EdgeInsets.only(bottom: 80),
+                        itemCount: filtered.length,
                         itemBuilder: (context, index) {
-                          final doc = filteredLeads[index];
+                          final doc = filtered[index];
                           final data = doc.data();
-                          final priority = (data['priority'] ?? 'medium').toString();
+                          final priority = (data['priority'] ?? 'medium')
+                              .toString();
                           final status = (data['status'] ?? 'new').toString();
-                          final followUp =
-                              (data['followUpDate'] as Timestamp?)?.toDate();
-                          final notes = (data['notes'] as List<dynamic>? ?? [])
+                          final followUp = (data['followUpDate'] as Timestamp?)
+                              ?.toDate();
+                          final notes = (data['notes'] as List? ?? [])
                               .cast<Map<String, dynamic>>();
+                          final isUpdating = _updatingLeadId == doc.id;
+                          final propertyId =
+                              data['propertyId']?.toString() ?? '';
+                          final propertyTitle =
+                              data['propertyTitle']?.toString() ?? '';
+                          final name = (data['name'] ?? 'Unknown').toString();
+
+                          // Format follow-up date
                           final followUpText = followUp == null
                               ? 'Not set'
-                              : '${followUp.year}-${followUp.month.toString().padLeft(2, '0')}-${followUp.day.toString().padLeft(2, '0')}';
-                          final isUpdating = _updatingLeadId == doc.id;
+                              : '${followUp.day}/${followUp.month}/${followUp.year}';
 
                           return Card(
                             margin: const EdgeInsets.symmetric(
@@ -408,41 +534,123 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
                               vertical: 6,
                             ),
                             child: ListTile(
-                              title: Text(data['name']?.toString() ?? '-'),
+                              contentPadding: const EdgeInsets.all(12),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _priorityColor(priority),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      priority.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const SizedBox(height: 6),
-                                  Text('Phone: ${data['phone'] ?? '-'}'),
-                                  Text(
-                                    'Status: ${status.toUpperCase()}',
-                                    style: TextStyle(
-                                      color: _statusColor(status),
-                                      fontWeight: FontWeight.w600,
+                                  // PRIVACY: Show masked alias if available, never raw phone
+                                  if ((data['maskedPhoneAlias'] ?? '')
+                                      .toString()
+                                      .isNotEmpty)
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.phone_outlined,
+                                          size: 14,
+                                          color: Colors.grey,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Masked: ${data['maskedPhoneAlias']}',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.lock_outline,
+                                          size: 14,
+                                          color: Colors.grey,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'Contact via EstateX chat',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  Text('Follow-up: $followUpText'),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
+                                  const SizedBox(height: 4),
+                                  Row(
                                     children: [
-                                      Chip(
-                                        label: Text('Priority: $priority'),
-                                        backgroundColor: _priorityColor(priority),
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: _statusColor(status),
+                                          shape: BoxShape.circle,
+                                        ),
                                       ),
-                                      Chip(
-                                        label: Text('Notes: ${notes.length}'),
-                                        avatar: const Icon(Icons.note, size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        status[0].toUpperCase() +
+                                            status.substring(1),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: _statusColor(status),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Icon(
+                                        Icons.event_outlined,
+                                        size: 12,
+                                        color: Colors.grey,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        followUpText,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                     ],
                                   ),
                                   if (notes.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      'Last note: ${notes.last['text'] ?? ''}',
-                                      maxLines: 2,
+                                      '📝 ${notes.last['text'] ?? ''}',
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ],
                                 ],
@@ -455,58 +663,97 @@ class _BrokerLeadsScreenState extends State<BrokerLeadsScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : PopupMenuButton<String>(
-                                      onSelected: (value) async {
-                                        if (value.startsWith('status:')) {
-                                          await _updateStatus(
-                                            doc.id,
-                                            value.replaceFirst('status:', ''),
-                                          );
-                                        } else if (value.startsWith('priority:')) {
-                                          await _updatePriority(
-                                            doc.id,
-                                            value.replaceFirst('priority:', ''),
-                                          );
-                                        } else if (value == 'follow_up') {
-                                          await _setFollowUp(doc.id);
-                                        } else if (value == 'note') {
-                                          await _addNote(doc.id);
-                                        }
-                                      },
-                                      itemBuilder: (_) => const [
-                                        PopupMenuItem(
-                                          value: 'status:new',
-                                          child: Text('Status: New'),
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Chat button — uses our new ContactChatScreen
+                                        IconButton(
+                                          tooltip: 'Open chat',
+                                          onPressed: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => ContactChatScreen(
+                                                brokerId: doc.id,
+                                                propertyId: propertyId,
+                                                propertyTitle:
+                                                    propertyTitle.isNotEmpty
+                                                    ? propertyTitle
+                                                    : 'Lead: $name',
+                                              ),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.chat_bubble_outline,
+                                          ),
                                         ),
-                                        PopupMenuItem(
-                                          value: 'status:contacted',
-                                          child: Text('Status: Contacted'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'status:closed',
-                                          child: Text('Status: Closed'),
-                                        ),
-                                        PopupMenuDivider(),
-                                        PopupMenuItem(
-                                          value: 'priority:high',
-                                          child: Text('Priority: High'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'priority:medium',
-                                          child: Text('Priority: Medium'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'priority:low',
-                                          child: Text('Priority: Low'),
-                                        ),
-                                        PopupMenuDivider(),
-                                        PopupMenuItem(
-                                          value: 'follow_up',
-                                          child: Text('Set Follow-up Date'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'note',
-                                          child: Text('Add Note'),
+                                        PopupMenuButton<String>(
+                                          onSelected: (value) async {
+                                            if (value.startsWith('status:')) {
+                                              await _updateStatus(
+                                                doc.id,
+                                                value.replaceFirst(
+                                                  'status:',
+                                                  '',
+                                                ),
+                                              );
+                                            } else if (value.startsWith(
+                                              'priority:',
+                                            )) {
+                                              await _updatePriority(
+                                                doc.id,
+                                                value.replaceFirst(
+                                                  'priority:',
+                                                  '',
+                                                ),
+                                              );
+                                            } else if (value == 'follow_up') {
+                                              await _setFollowUp(doc.id);
+                                            } else if (value == 'note') {
+                                              await _addNote(doc.id);
+                                            }
+                                          },
+                                          itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                              value: 'status:new',
+                                              child: Text('Status: New'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'status:contacted',
+                                              child: Text('Status: Contacted'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'status:negotiation',
+                                              child: Text(
+                                                'Status: Negotiation',
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'status:closed',
+                                              child: Text('Status: Closed'),
+                                            ),
+                                            PopupMenuDivider(),
+                                            PopupMenuItem(
+                                              value: 'priority:high',
+                                              child: Text('🔴 High priority'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'priority:medium',
+                                              child: Text('🟡 Medium priority'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'priority:low',
+                                              child: Text('🔵 Low priority'),
+                                            ),
+                                            PopupMenuDivider(),
+                                            PopupMenuItem(
+                                              value: 'follow_up',
+                                              child: Text('Set Follow-up'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'note',
+                                              child: Text('Add Note'),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),

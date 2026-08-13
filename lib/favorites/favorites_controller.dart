@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:estatex_app/favorites/favorites_cache.dart';
 import 'package:estatex_app/favorites/favorites_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 class FavoritesState {
   const FavoritesState({
@@ -41,10 +42,10 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     required FavoritesRepository service,
     required FavoritesCache cache,
     required String userId,
-  })  : _service = service,
-        _cache = cache,
-        _userId = userId,
-        super(const FavoritesState());
+  }) : _service = service,
+       _cache = cache,
+       _userId = userId,
+       super(const FavoritesState());
 
   final FavoritesRepository _service;
   final FavoritesCache _cache;
@@ -88,7 +89,10 @@ class FavoritesController extends StateNotifier<FavoritesState> {
 
     try {
       await _cache.write(_userId, nextIds);
-      await _service.setFavorite(propertyId: propertyId, isFavorite: nextFavorite);
+      await _service.setFavorite(
+        propertyId: propertyId,
+        isFavorite: nextFavorite,
+      );
       final cleared = Set<String>.from(state.pendingIds)..remove(propertyId);
       state = state.copyWith(pendingIds: cleared, clearError: true);
     } catch (_) {

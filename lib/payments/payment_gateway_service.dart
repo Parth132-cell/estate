@@ -1,94 +1,127 @@
-import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-/// Gateway-agnostic payment states.
-enum PaymentState { success, failed, pending }
+import 'payment_models.dart';
+import 'razorpay_backend_service.dart';
+import 'razorpay_checkout_service.dart';
 
-class PaymentResult {
-  final PaymentState state;
-  final String transactionId;
-  final String provider;
-  final int amount;
-  final String? failureReason;
+export 'payment_models.dart';
 
-  const PaymentResult({
-    required this.state,
-    required this.transactionId,
-    required this.provider,
-    required this.amount,
-    this.failureReason,
-  });
-
-  bool get isSuccess => state == PaymentState.success;
-}
-
-/// Supported payment providers.
-class PaymentProvider {
-  static const String stripe = 'stripe';
-  static const String razorpay = 'razorpay';
-
-  static const Set<String> supported = {stripe, razorpay};
-}
-
-/// Phase-1 provider abstraction.
-/// Replace internals with Stripe/Razorpay SDK + backend verification.
 class PaymentGatewayService {
-  final Random _random = Random();
+  PaymentGatewayService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+    RazorpayBackendService? backendService,
+    RazorpayCheckoutService? checkoutService,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+       _db = firestore ?? FirebaseFirestore.instance,
+       _backendService = backendService ?? RazorpayBackendService(),
+       _checkoutService = checkoutService ?? RazorpayCheckoutService();
 
-  Future<PaymentResult> payTokenAmount({
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _db;
+  final RazorpayBackendService _backendService;
+  final RazorpayCheckoutService _checkoutService;
+
+  Future<PaymentResult> payWithStripe({required int amount}) async {
+    throw UnimplementedError('Stripe is not configured in this build.');
+  }
+
+  Future<PaymentResult> payWithRazorpay({
     required int amount,
-    required String provider,
+    required String escrowId,
+    required String dealId,
+    required String propertyId,
+    required String brokerId,
   }) async {
-    if (!PaymentProvider.supported.contains(provider)) {
-      throw ArgumentError('Unsupported payment provider: $provider');
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated');
     }
 
-    await Future.delayed(const Duration(milliseconds: 800));
+    final userSnap = await _db.collection('users').doc(user.uid).get();
+    final userData = userSnap.data() ?? <String, dynamic>{};
+    final buyerName = (userData['name'] ?? user.displayName ?? 'EstateX Buyer')
+        .toString()
+        .trim();
+    final buyerContact = (userData['phone'] ?? user.phoneNumber ?? '').toString();
+    final buyerEmail = (userData['email'] ?? user.email ?? '').toString();
 
-    final roll = _random.nextInt(100);
-    final txId = '${provider.toUpperCase()}_${DateTime.now().millisecondsSinceEpoch}';
+    final order = await _backendService.createOrder(
+      escrowId: escrowId,
+      dealId: dealId,
+      propertyId: propertyId,
+      brokerId: brokerId,
+      amount: amount,
+    );
 
-    if (roll < 80) {
+    final checkoutResult = await _checkoutService.openCheckout(
+      session: order,
+      buyerName: buyerName,
+      buyerContact: buyerContact,
+      buyerEmail: buyerEmail,
+    );
+
+    if (checkoutResult case RazorpayCheckoutSuccess success) {
+      final verification = await _backendService.verifyPayment(
+        paymentId: order.paymentId,
+        razorpayOrderId: success.orderId,
+        razorpayPaymentId: success.paymentId,
+        razorpaySignature: success.signature,
+      );
+
       return PaymentResult(
-        state: PaymentState.success,
-        transactionId: txId,
-        provider: provider,
+        state: verification.state,
+        transactionId: verification.gatewayPaymentId,
+        provider: PaymentProvider.razorpay,
         amount: amount,
+        orderId: success.orderId,
+        paymentRecordId: verification.paymentId,
+        failureReason: verification.failureReason,
       );
     }
 
-    if (roll < 92) {
-      return PaymentResult(
-        state: PaymentState.pending,
-        transactionId: txId,
-        provider: provider,
-        amount: amount,
+    final failure = checkoutResult as RazorpayCheckoutFailure;
+    try {
+      await _backendService.reportFailure(
+        paymentId: order.paymentId,
+        code: failure.code,
+        description: failure.description,
+        step: failure.step,
+        source: failure.source,
+        reason: failure.reason,
       );
+    } catch (_) {
+      // The backend failure log is best-effort. The checkout error is still surfaced.
     }
 
     return PaymentResult(
       state: PaymentState.failed,
-      transactionId: txId,
-      provider: provider,
+      transactionId: order.orderId,
+      provider: PaymentProvider.razorpay,
       amount: amount,
-      failureReason: 'Payment authorization failed',
+      orderId: order.orderId,
+      paymentRecordId: order.paymentId,
+      failureReason: failure.description,
     );
   }
 
-  Future<PaymentResult> payWithStripe({required int amount}) {
-    return payTokenAmount(amount: amount, provider: PaymentProvider.stripe);
-  }
-
-  Future<PaymentResult> payWithRazorpay({required int amount}) {
-    return payTokenAmount(amount: amount, provider: PaymentProvider.razorpay);
-  }
-
   Future<PaymentState> verifyTransaction(String transactionId) async {
-    await Future.delayed(const Duration(milliseconds: 400));
+    final snapshot = await _db
+        .collection('payments')
+        .where('gateway.paymentId', isEqualTo: transactionId)
+        .limit(1)
+        .get();
 
-    // Phase-1 mocked verification.
-    final roll = _random.nextInt(100);
-    if (roll < 78) return PaymentState.success;
-    if (roll < 93) return PaymentState.pending;
-    return PaymentState.failed;
+    if (snapshot.docs.isEmpty) {
+      return PaymentState.pending;
+    }
+
+    final data = snapshot.docs.first.data();
+    return switch ((data['paymentStatus'] ?? 'pending').toString()) {
+      'success' => PaymentState.success,
+      'failed' => PaymentState.failed,
+      _ => PaymentState.pending,
+    };
   }
 }

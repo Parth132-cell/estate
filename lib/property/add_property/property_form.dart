@@ -21,25 +21,30 @@ class _PropertyFormState extends State<PropertyForm> {
   final priceController = TextEditingController();
   final cityController = TextEditingController();
   final localityController = TextEditingController();
+  final latitudeController = TextEditingController();
+  final longitudeController = TextEditingController();
   final areaController = TextEditingController();
   final descriptionController = TextEditingController();
 
   int bhk = 2;
-  List<File> images = [];
+  List<File> newImages = [];
+  List<String> existingImageUrls = [];
   bool submitting = false;
   double uploadProgress = 0;
   String? lastError;
 
-  void onImagesChanged(List<File> files) {
+  void onImagesChanged(PropertyImageSelection selection) {
     setState(() {
-      images = files;
+      newImages = selection.newImages;
+      existingImageUrls = selection.existingImageUrls;
     });
   }
 
   Future<void> submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final totalImages = newImages.length + existingImageUrls.length;
 
-    if (images.length < 3 || images.length > 10) {
+    if (totalImages < 3 || totalImages > 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add between 3 and 10 images')),
       );
@@ -53,16 +58,24 @@ class _PropertyFormState extends State<PropertyForm> {
     });
 
     try {
-      await PropertyService().submitProperty(
+      final input = PropertyUpsertInput(
         title: titleController.text.trim(),
-        price: int.parse(priceController.text),
+        price: int.tryParse(priceController.text),
         city: cityController.text.trim(),
         locality: localityController.text.trim(),
+        latitude: double.tryParse(latitudeController.text.trim()),
+        longitude: double.tryParse(longitudeController.text.trim()),
         areaSqft: int.tryParse(areaController.text.trim()),
         description: descriptionController.text.trim(),
         bhk: bhk,
         listingType: widget.listingType,
-        images: images,
+
+        // IMPORTANT FIX 👇
+        existingImageUrls: [], // new property → no old images
+        newImages: newImages, // your selected images
+      );
+      await PropertyService().submitProperty(
+        input: input,
         onUploadProgress: (progress) {
           if (!mounted) return;
           setState(() => uploadProgress = progress);
@@ -84,7 +97,9 @@ class _PropertyFormState extends State<PropertyForm> {
       setState(() {
         lastError = message;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => submitting = false);
@@ -98,6 +113,8 @@ class _PropertyFormState extends State<PropertyForm> {
     priceController.dispose();
     cityController.dispose();
     localityController.dispose();
+    latitudeController.dispose();
+    longitudeController.dispose();
     areaController.dispose();
     descriptionController.dispose();
     super.dispose();
@@ -123,7 +140,8 @@ class _PropertyFormState extends State<PropertyForm> {
             validator: (v) {
               final value = (v ?? '').trim();
               if (value.isEmpty) return 'Title is required';
-              if (value.length < 3) return 'Title must be at least 3 characters';
+              if (value.length < 3)
+                return 'Title must be at least 3 characters';
               return null;
             },
           ),
@@ -164,10 +182,67 @@ class _PropertyFormState extends State<PropertyForm> {
 
           const SizedBox(height: 16),
 
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: latitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Latitude (optional)',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    final parsed = double.tryParse(v.trim());
+                    if (parsed == null || parsed < -90 || parsed > 90) {
+                      return 'Invalid latitude';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: longitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Longitude (optional)',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    final parsed = double.tryParse(v.trim());
+                    if (parsed == null || parsed < -180 || parsed > 180) {
+                      return 'Invalid longitude';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'Add coordinates for precise map pins. Older listings without coordinates will still appear with approximate city placement.',
+            style: TextStyle(color: Colors.black54, fontSize: 12),
+          ),
+
+          const SizedBox(height: 16),
+
           TextFormField(
             controller: areaController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Built-up area (sq ft)'),
+            decoration: const InputDecoration(
+              labelText: 'Built-up area (sq ft)',
+            ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return null;
               final area = int.tryParse(v.trim());
@@ -212,9 +287,13 @@ class _PropertyFormState extends State<PropertyForm> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LinearProgressIndicator(value: uploadProgress == 0 ? null : uploadProgress),
+                LinearProgressIndicator(
+                  value: uploadProgress == 0 ? null : uploadProgress,
+                ),
                 const SizedBox(height: 8),
-                Text('Upload progress: ${(uploadProgress * 100).toStringAsFixed(0)}%'),
+                Text(
+                  'Upload progress: ${(uploadProgress * 100).toStringAsFixed(0)}%',
+                ),
               ],
             ),
 

@@ -1,11 +1,65 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /properties/{propertyId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+
+    // ── Helper functions ──────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
     }
 
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 10 * 1024 * 1024; // 10 MB max
+    }
+
+    function isValidPdf() {
+      return request.resource.contentType == 'application/pdf'
+        && request.resource.size < 20 * 1024 * 1024; // 20 MB max
+    }
+
+    // ── Property images ───────────────────────────────────────────────
+    // Path: properties/{propertyId}/{ownerId}/{filename}
+    match /properties/{propertyId}/{ownerId}/{filename} {
+      allow read: if true;                    // public — listings are visible to all
+      allow create: if isOwner(ownerId) && isValidImage();
+      allow delete: if isOwner(ownerId);
+      allow update: if false;                 // overwrite by deleting and re-uploading
+    }
+
+    // ── User avatars ──────────────────────────────────────────────────
+    // Path: users/{uid}/avatar/{filename}
+    match /users/{uid}/avatar/{filename} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(uid) && isValidImage();
+      allow delete: if isOwner(uid);
+    }
+
+    // ── Agreement PDFs ────────────────────────────────────────────────
+    // Path: agreements/{agreementId}/{filename}
+    // Only parties to the agreement should read; the backend (or the buyer/seller)
+    // generates and uploads the PDF.
+    match /agreements/{agreementId}/{filename} {
+      allow read: if isSignedIn();   // further access control enforced in Firestore
+      allow create: if isSignedIn() && isValidPdf();
+      allow delete: if false;        // agreements are permanent records
+      allow update: if false;
+    }
+
+    // ── KYC documents ─────────────────────────────────────────────────
+    // Path: kyc/{uid}/{filename}
+    match /kyc/{uid}/{filename} {
+      allow read: if isOwner(uid);   // only the owner can read their own KYC docs
+      allow create: if isOwner(uid)
+        && request.resource.size < 5 * 1024 * 1024; // 5 MB max
+      allow delete: if isOwner(uid);
+      allow update: if false;
+    }
+
+    // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -63,7 +63,7 @@ class AdminEscrowScreen extends StatelessWidget {
                                   // 2️⃣ Fetch deal details
                                   final dealSnap = await FirebaseFirestore
                                       .instance
-                                      .collection('deals')
+                                      .collection('offers')
                                       .doc(data['dealId'])
                                       .get();
 

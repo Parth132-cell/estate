@@ -157,7 +157,12 @@ class _VisitListState extends State<_VisitList> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final docs = [...(snapshot.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])]
+          ..sort((a, b) {
+            final aAt = a.data()['scheduledAt'] as Timestamp?;
+            final bAt = b.data()['scheduledAt'] as Timestamp?;
+            return (aAt?.millisecondsSinceEpoch ?? 0).compareTo(bAt?.millisecondsSinceEpoch ?? 0);
+          });
         if (docs.isEmpty) {
           return Center(
             child: Text(widget.isBroker ? 'No broker visits yet' : 'No visits scheduled yet'),

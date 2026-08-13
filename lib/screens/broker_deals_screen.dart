@@ -105,7 +105,12 @@ class _BrokerDealsScreenState extends State<BrokerDealsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final deals = snapshot.data?.docs ?? [];
+          final deals = [...(snapshot.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])]
+            ..sort((a, b) {
+              final aAt = a.data()['createdAt'] as Timestamp?;
+              final bAt = b.data()['createdAt'] as Timestamp?;
+              return (bAt?.millisecondsSinceEpoch ?? 0).compareTo(aAt?.millisecondsSinceEpoch ?? 0);
+            });
           if (deals.isEmpty) {
             return const Center(child: Text('No deals'));
           }

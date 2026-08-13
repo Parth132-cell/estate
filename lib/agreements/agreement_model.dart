@@ -6,8 +6,11 @@ class Agreement {
   final String buyerId;
   final String sellerId;
   final String status; // draft | accepted | rejected
-  final String esignStatus; // not_sent | pending_buyer | pending_seller | completed
+  final String esignStatus; // not_sent | pending_buyer | pending_seller | completed | declined | voided
+  final String? envelopeStatus;
+  final String? envelopeId;
   final String? pdfUrl;
+  final String? signedPdfUrl;
   final DateTime createdAt;
 
   const Agreement({
@@ -18,7 +21,10 @@ class Agreement {
     required this.status,
     required this.esignStatus,
     required this.createdAt,
+    this.envelopeStatus,
+    this.envelopeId,
     this.pdfUrl,
+    this.signedPdfUrl,
   });
 
   bool get isFinalized => status == 'accepted' || status == 'rejected';
@@ -50,7 +56,10 @@ class Agreement {
       sellerId: (map['sellerId'] ?? map['brokerId'] ?? '').toString(),
       status: (map['status'] ?? 'draft').toString(),
       esignStatus: (map['esignStatus'] ?? 'not_sent').toString(),
+      envelopeStatus: map['envelopeStatus']?.toString(),
+      envelopeId: map['envelopeId']?.toString(),
       pdfUrl: map['pdfUrl']?.toString(),
+      signedPdfUrl: map['signedPdfUrl']?.toString(),
       createdAt: created,
     );
   }

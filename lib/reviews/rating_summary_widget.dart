@@ -1,3 +1,4 @@
+import 'package:estatex_app/reviews/review_model.dart';
 import 'package:flutter/material.dart';
 import 'review_service.dart';
 
@@ -8,16 +9,16 @@ class RatingSummaryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
+    return StreamBuilder<List<Review>>(
       stream: ReviewService().forBroker(brokerId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
 
-        final reviews = snapshot.data!.docs;
+        final reviews = snapshot.data!;
         if (reviews.isEmpty) return const Text("No ratings yet");
 
         final avg =
-            reviews.map((e) => e['rating'] as int).reduce((a, b) => a + b) /
+            reviews.map((r) => r.rating).reduce((a, b) => a + b) /
             reviews.length;
 
         return Row(

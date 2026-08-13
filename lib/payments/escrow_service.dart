@@ -39,7 +39,7 @@ class EscrowService {
     required String propertyId,
     required String brokerId,
     required int amount,
-    String provider = PaymentProvider.stripe,
+    String provider = PaymentProvider.razorpay,
   }) async {
     if (!PaymentProvider.supported.contains(provider)) {
       throw ArgumentError('Unsupported payment provider: $provider');
@@ -80,7 +80,7 @@ class EscrowService {
     required String propertyId,
     required String brokerId,
     required int amount,
-    String provider = PaymentProvider.stripe,
+    String provider = PaymentProvider.razorpay,
   }) async {
     final escrowId = await createEscrow(
       dealId: dealId,
@@ -91,13 +91,21 @@ class EscrowService {
     );
 
     final result = provider == PaymentProvider.razorpay
-        ? await _paymentGatewayService.payWithRazorpay(amount: amount)
+        ? await _paymentGatewayService.payWithRazorpay(
+            amount: amount,
+            escrowId: escrowId,
+            dealId: dealId,
+            propertyId: propertyId,
+            brokerId: brokerId,
+          )
         : await _paymentGatewayService.payWithStripe(amount: amount);
 
     await _db.collection('escrow').doc(escrowId).update({
       'paymentStatus': result.state.name,
       'transactionId': result.transactionId,
       'provider': result.provider,
+      'paymentOrderId': result.orderId,
+      'paymentRecordId': result.paymentRecordId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
@@ -195,7 +203,6 @@ class EscrowService {
     return _db
         .collection('escrow')
         .where('buyerId', isEqualTo: _uid)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
@@ -204,7 +211,6 @@ class EscrowService {
     return _db
         .collection('escrow')
         .where('brokerId', isEqualTo: _uid)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
@@ -220,22 +226,24 @@ class EscrowService {
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
+      final paymentRecordId = data['paymentRecordId'] as String?;
       final transactionId = data['transactionId'] as String?;
 
-      if (transactionId == null || transactionId.isEmpty) continue;
-
-      final paymentState = await _paymentGatewayService.verifyTransaction(
-        transactionId,
-      );
+      PaymentState paymentState;
+      if (paymentRecordId != null && paymentRecordId.isNotEmpty) {
+        final paymentSnap = await _db.collection('payments').doc(paymentRecordId).get();
+        final paymentData = paymentSnap.data();
+        paymentState = switch ((paymentData?['paymentStatus'] ?? 'pending').toString()) {
+          'success' => PaymentState.success,
+          'failed' => PaymentState.failed,
+          _ => PaymentState.pending,
+        };
+      } else {
+        if (transactionId == null || transactionId.isEmpty) continue;
+        paymentState = await _paymentGatewayService.verifyTransaction(transactionId);
+      }
 
       if (paymentState == PaymentState.success) {
-        await transitionState(
-          escrowId: doc.id,
-          nextState: EscrowState.completed,
-          action: 'payment_settled',
-          metadata: {'transactionId': transactionId},
-        );
-
         await _db.collection('escrow').doc(doc.id).update({
           'paymentStatus': 'success',
           'updatedAt': FieldValue.serverTimestamp(),

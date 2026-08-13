@@ -1,6 +1,7 @@
 class AppUser {
   final String uid;
   final String phone;
+  final String role;
   final bool canUploadProperty;
   final bool canHostLiveTour;
   final String profileType; // individual | professional
@@ -8,6 +9,7 @@ class AppUser {
   const AppUser({
     required this.uid,
     required this.phone,
+    required this.role,
     required this.canUploadProperty,
     required this.canHostLiveTour,
     required this.profileType,
@@ -18,6 +20,7 @@ class AppUser {
       return AppUser(
         uid: uid,
         phone: '',
+        role: 'user',
         canUploadProperty: false,
         canHostLiveTour: false,
         profileType: 'individual',
@@ -27,6 +30,7 @@ class AppUser {
     return AppUser(
       uid: uid,
       phone: map['phone'] ?? '',
+      role: (map['role'] ?? 'user').toString(),
       canUploadProperty: map['canUploadProperty'] == true,
       canHostLiveTour: map['canHostLiveTour'] == true,
       profileType: map['profileType'] ?? 'individual',

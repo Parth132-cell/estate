@@ -1,11 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:estatex_app/broker_crm/broker_crm_models.dart';
+import 'package:estatex_app/services/app_analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class LeadService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  static const List<String> statuses = ['new', 'contacted', 'closed'];
-  static const List<String> priorities = ['low', 'medium', 'high'];
+  static final List<String> statuses =
+      LeadStage.values.map((stage) => stage.key).toList(growable: false);
+  static final List<String> priorities =
+      LeadPriority.values.map((priority) => priority.key).toList(growable: false);
 
   String get _uid {
     final user = FirebaseAuth.instance.currentUser;
@@ -42,6 +46,7 @@ class LeadService {
     required String name,
     required String phone,
     required String priority,
+    String message = '',
     DateTime? followUpDate,
   }) async {
     await _db.collection('leads').add({
@@ -50,6 +55,7 @@ class LeadService {
       'buyerId': _uid,
       'name': name.trim(),
       'phone': phone.trim(),
+      'message': message.trim(),
       'status': 'new',
       'priority': priority,
       'followUpDate':
@@ -59,6 +65,8 @@ class LeadService {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    await AppAnalyticsService.instance.logLeadCreated(priority: priority);
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> brokerLeads(String brokerId) {
@@ -93,7 +101,8 @@ class LeadService {
     await _db.collection('leads').doc(leadId).update({
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
-      if (status == 'contacted')
+      if (status == LeadStage.contacted.key ||
+          status == LeadStage.negotiation.key)
         'lastContacted': FieldValue.serverTimestamp(),
     });
   }

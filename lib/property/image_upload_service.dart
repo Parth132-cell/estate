@@ -8,6 +8,7 @@ class ImageUploadService {
 
   Future<List<String>> uploadPropertyImages({
     required String propertyId,
+    required String ownerId,
     required List<File> images,
     required void Function(double progress) onProgress,
     int maxRetries = 2,
@@ -31,14 +32,22 @@ class ImageUploadService {
       final compressedFile = await _compressImage(image);
       final ext = _safeExtension(compressedFile.path);
       final fileName = 'img_${i + 1}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final ref = _storage.ref().child('properties/$propertyId/$fileName');
+      final ref = _storage.ref().child(
+        'property_uploads/$ownerId/$propertyId/$fileName',
+      );
 
       var attempt = 0;
       while (true) {
         try {
           await ref.putFile(
             compressedFile,
-            SettableMetadata(contentType: 'image/$ext'),
+            SettableMetadata(
+              contentType: 'image/$ext',
+              customMetadata: {
+                'ownerId': ownerId,
+                'propertyId': propertyId,
+              },
+            ),
           );
 
           final url = await ref.getDownloadURL();

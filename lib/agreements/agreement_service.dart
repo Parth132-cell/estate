@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import 'agreement_backend_service.dart';
@@ -8,15 +9,18 @@ import 'agreement_backend_service.dart';
 class AgreementService {
   final FirebaseFirestore _db;
   final FirebaseStorage _storage;
-  final AgreementBackendService? _backendService;
+  final AgreementBackendService _backendService;
+  final FirebaseAuth _auth;
 
   AgreementService({
     FirebaseFirestore? db,
     FirebaseStorage? storage,
     AgreementBackendService? backendService,
+    FirebaseAuth? auth,
   }) : _db = db ?? FirebaseFirestore.instance,
        _storage = storage ?? FirebaseStorage.instance,
-       _backendService = backendService;
+       _backendService = backendService ?? AgreementBackendService(),
+       _auth = auth ?? FirebaseAuth.instance;
 
   /// Create agreement between buyer and seller.
   Future<String> createAgreement({
@@ -35,8 +39,23 @@ class AgreementService {
         sellerId: sellerId,
       ),
       'esignStatus': 'not_sent',
+      'esignProvider': 'docusign',
+      'envelopeStatus': null,
+      'envelopeId': null,
       'pdfUrl': null,
+      'signedPdfUrl': null,
+      'signedPdfPath': null,
       'signatureRequestId': null,
+      'signers': {
+        'buyer': {
+          'userId': buyerId,
+          'status': 'created',
+        },
+        'seller': {
+          'userId': sellerId,
+          'status': 'created',
+        },
+      },
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -114,35 +133,39 @@ Terms:
       throw Exception('Generate PDF before sending for signature');
     }
 
-    String? requestId;
-    if (_backendService != null) {
-      requestId = await _backendService.requestDigitalSignature(
-        agreementId: agreementId,
-        signerUserId: (data['buyerId'] ?? '').toString(),
-        signerRole: 'buyer',
-        pdfUrl: pdfUrl,
-      );
-    }
+    final requestId = await _backendService.requestDigitalSignature(
+      agreementId: agreementId,
+      pdfUrl: pdfUrl,
+    );
 
     await _db.collection('agreements').doc(agreementId).update({
       'esignStatus': 'pending_buyer',
+      'envelopeStatus': 'sent',
       if (requestId != null) 'signatureRequestId': requestId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> markBuyerSigned(String agreementId) async {
-    await _db.collection('agreements').doc(agreementId).update({
-      'esignStatus': 'pending_seller',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<String> createSigningSession(String agreementId) {
+    return _backendService.createSigningSession(
+      agreementId: agreementId,
+    );
   }
 
-  Future<void> markSellerSigned(String agreementId) async {
-    await _db.collection('agreements').doc(agreementId).update({
-      'esignStatus': 'completed',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<void> syncSignatureStatus(String agreementId) {
+    return _backendService.syncSignatureStatus(agreementId);
+  }
+
+  String? currentSignerRole(Map<String, dynamic> data) {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+    if ((data['buyerId'] ?? '').toString() == uid) {
+      return 'buyer';
+    }
+    if ((data['sellerId'] ?? data['brokerId'] ?? '').toString() == uid) {
+      return 'seller';
+    }
+    return null;
   }
 
   Future<DocumentSnapshot<Map<String, dynamic>>> getById(String agreementId) {
@@ -160,21 +183,28 @@ Terms:
     required String agreementId,
     required Map<String, dynamic> data,
   }) async {
-    if (_backendService != null) {
+    final signers = Map<String, dynamic>.from(data['signers'] as Map? ?? {});
+    final buyerSigner =
+        Map<String, dynamic>.from(signers['buyer'] as Map? ?? {});
+    final sellerSigner =
+        Map<String, dynamic>.from(signers['seller'] as Map? ?? {});
+    try {
       final response = await _backendService.renderAgreementPdf(
         agreementId: agreementId,
         dealId: (data['dealId'] ?? '').toString(),
         buyerId: (data['buyerId'] ?? '').toString(),
         sellerId: (data['sellerId'] ?? data['brokerId'] ?? '').toString(),
+        buyerName: (buyerSigner['name'] ?? '').toString(),
+        sellerName: (sellerSigner['name'] ?? '').toString(),
+        propertyTitle: data['propertyTitle']?.toString(),
+        amount: (data['amount'] as num?)?.toInt(),
         body: (data['documentBody'] ?? '').toString(),
       );
       return response.pdfBytes;
+    } catch (_) {
+      return Uint8List.fromList(
+        'Agreement $agreementId\n${data['documentBody'] ?? ''}'.codeUnits,
+      );
     }
-
-    // Minimal placeholder PDF bytes fallback for non-production envs.
-    // This keeps integration paths testable before backend rollout.
-    return Uint8List.fromList(
-      'Agreement $agreementId\n${data['documentBody'] ?? ''}'.codeUnits,
-    );
   }
 }

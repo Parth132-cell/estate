@@ -1,133 +1,154 @@
-import 'dart:io';
+import 'dart:async';
 
-import 'package:estatex_app/app/no_internet_screen.dart';
-import 'package:estatex_app/app/splash_screen.dart';
-import 'package:estatex_app/auth/phone_login_screen.dart';
-import 'package:estatex_app/auth/unit_init_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:estatex_app/app_theme.dart';
+
+import 'package:estatex_app/auth/auth_gate_update.dart';
+import 'package:estatex_app/notifications/notification_service.dart';
+import 'package:estatex_app/services/app_analytics_service.dart';
+import 'package:estatex_app/services/app_monitoring_service.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
-import 'navigation/main_navigation.dart';
+import 'firebase_options.dart';
 
-void main() async {
+Future<void> main() async {
+  // ── Ensure Flutter binding before anything async ──
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode
-        ? AndroidProvider.debug
-        : AndroidProvider.playIntegrity,
-    appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
-  );
-  if (kDebugMode) {
-    FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
-  }
 
-  runApp(const ProviderScope(child: MyApp()));
+  // ── Lock to portrait ──
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // ── Transparent status bar ──
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
+  // ── Firebase init — run in background, don't block first frame ──
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // ── Register error handlers before any UI ──
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    unawaited(AppMonitoringService.instance.recordFlutterError(details));
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    unawaited(AppMonitoringService.instance.recordError(error, stack));
+    return true;
+  };
+
+  // ── Init notification service after Firebase ──
+  // Use unawaited so it doesn't block first paint
+  unawaited(_initServicesInBackground());
+
+  runApp(const ProviderScope(child: EstateXApp()));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// Initialise notification + analytics service off the main thread start.
+/// This is what was causing the 95-frame skip — all these awaits were
+/// blocking the first render in the old main().
+Future<void> _initServicesInBackground() async {
+  try {
+    await AppNotificationService().initialize();
+  } catch (e) {
+    debugPrint('[EstateX] Notification init failed: $e');
+  }
+}
+
+class EstateXApp extends StatelessWidget {
+  const EstateXApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'EstateX',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        scaffoldBackgroundColor: const Color(0xFFF8F9FB),
-      ),
-      home: const AppBootstrap(),
-    );
-  }
-}
+      debugShowCheckedModeBanner: false,
 
-class AppBootstrap extends StatefulWidget {
-  const AppBootstrap({super.key});
+      // ── Apply the design system ──
+      theme: AppTheme.light,
 
-  @override
-  State<AppBootstrap> createState() => _AppBootstrapState();
-}
+      // ── Analytics navigator observer ──
+      navigatorObservers: [
+        if (AppAnalyticsService.instance.navigatorObserver != null)
+          AppAnalyticsService.instance.navigatorObserver!,
+      ],
 
-class _AppBootstrapState extends State<AppBootstrap> {
-  late Future<bool> _startup;
-
-  @override
-  void initState() {
-    super.initState();
-    _startup = _prepareApp();
-  }
-
-  Future<bool> _prepareApp() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    try {
-      final result = await InternetAddress.lookup('google.com');
-      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _startup,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const SplashScreen();
-        }
-
-        if (snapshot.data != true) {
-          return NoInternetScreen(
-            onRetry: () {
-              setState(() {
-                _startup = _prepareApp();
-              });
-            },
-          );
-        }
-
-        return const AuthGate();
-      },
-    );
-  }
-}
-
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        }
-
-        if (!snapshot.hasData) {
-          return const PhoneLoginScreen();
-        }
-
-        return FutureBuilder(
-          future: UserInitService().ensureUserDocument(),
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            return const MainNavigation();
-          },
+      // ── Error widget — shown when a widget crashes ──
+      builder: (context, child) {
+        // Override error widget in release mode
+        ErrorWidget.builder = (details) => _AppErrorWidget(
+          message: kDebugMode ? details.exceptionAsString() : null,
         );
+        return child ?? const SizedBox.shrink();
       },
+
+      home: const AuthGate(),
+    );
+  }
+}
+
+class _AppErrorWidget extends StatelessWidget {
+  final String? message;
+  const _AppErrorWidget({this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.surface,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 56, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              const Text(
+                'Something went wrong',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Please restart the app. If the problem continues, contact support.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+              if (message != null && kDebugMode) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    message!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

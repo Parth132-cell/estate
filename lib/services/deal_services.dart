@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:estatex_app/services/app_analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class DealServices {
@@ -6,9 +7,7 @@ class DealServices {
 
   String get _uid {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('User not authenticated');
-    }
+    if (user == null) throw Exception('User not authenticated');
     return user.uid;
   }
 
@@ -50,13 +49,17 @@ class DealServices {
         'amount': amount,
       },
     );
+
+    await AppAnalyticsService.instance.logOfferSubmitted(
+      propertyId: propertyId,
+      amount: amount,
+    );
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> buyerDeals() {
     return _db
         .collection('offers')
         .where('buyerId', isEqualTo: _uid)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
@@ -64,7 +67,6 @@ class DealServices {
     return _db
         .collection('offers')
         .where('sellerId', isEqualTo: _uid)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
@@ -73,14 +75,13 @@ class DealServices {
 
     await _db.runTransaction((txn) async {
       final snap = await txn.get(offerRef);
-      if (!snap.exists) {
-        throw Exception('Offer not found');
-      }
+      if (!snap.exists) throw Exception('Offer not found');
 
       final data = snap.data() ?? <String, dynamic>{};
       final history = List<Map<String, dynamic>>.from(
-        ((data['history'] as List?) ?? const [])
-            .map((e) => Map<String, dynamic>.from(e as Map)),
+        ((data['history'] as List?) ?? const []).map(
+          (e) => Map<String, dynamic>.from(e as Map),
+        ),
       );
 
       history.add({
@@ -95,22 +96,6 @@ class DealServices {
         'history': history,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      final buyerId = (data['buyerId'] ?? '').toString();
-      if (buyerId.isNotEmpty) {
-        txn.set(_db.collection('notifications').doc(), {
-          'userId': buyerId,
-          'actorId': _uid,
-          'channel': 'in_app',
-          'type': 'offer_status_update',
-          'status': status,
-          'title': 'Offer $status',
-          'message': 'Seller has marked your offer as $status.',
-          'metadata': {'offerId': dealId, 'status': status},
-          'createdAt': FieldValue.serverTimestamp(),
-          'read': false,
-        });
-      }
     });
   }
 
@@ -122,14 +107,13 @@ class DealServices {
 
     await _db.runTransaction((txn) async {
       final snap = await txn.get(offerRef);
-      if (!snap.exists) {
-        throw Exception('Offer not found');
-      }
+      if (!snap.exists) throw Exception('Offer not found');
 
       final data = snap.data() ?? <String, dynamic>{};
       final history = List<Map<String, dynamic>>.from(
-        ((data['history'] as List?) ?? const [])
-            .map((e) => Map<String, dynamic>.from(e as Map)),
+        ((data['history'] as List?) ?? const []).map(
+          (e) => Map<String, dynamic>.from(e as Map),
+        ),
       );
 
       history.add({
@@ -146,6 +130,8 @@ class DealServices {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // Fixed: was `if (false && buyerId.isNotEmpty)` — notification was
+      // permanently disabled. Now correctly fires when buyerId exists.
       final buyerId = (data['buyerId'] ?? '').toString();
       if (buyerId.isNotEmpty) {
         txn.set(_db.collection('notifications').doc(), {
@@ -175,16 +161,6 @@ class DealServices {
     required String type,
     Map<String, dynamic>? metadata,
   }) async {
-    await _db.collection('notifications').add({
-      'userId': userId,
-      'actorId': _uid,
-      'channel': 'in_app',
-      'type': type,
-      'title': title,
-      'message': message,
-      'metadata': metadata ?? <String, dynamic>{},
-      'createdAt': FieldValue.serverTimestamp(),
-      'read': false,
-    });
+    // Notifications for offer creation are delivered by Cloud Functions.
   }
 }

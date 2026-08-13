@@ -1,8 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:estatex_app/services/app_analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+import '../property/property_listing_status.dart';
 
 class AdminService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  Stream<AdminDashboardMetrics> dashboardMetrics({
+    Duration refreshInterval = const Duration(seconds: 30),
+  }) async* {
+    while (true) {
+      yield await _fetchDashboardMetrics();
+      await Future<void>.delayed(refreshInterval);
+    }
+  }
 
   /// Pending brokers
   Stream<QuerySnapshot<Map<String, dynamic>>> pendingBrokers() {
@@ -69,9 +81,18 @@ class AdminService {
 
       final propertyUpdate = <String, dynamic>{
         'verificationStatus': status,
-        'status': status,
+        'listingStatus':
+            (property['listingStatus'] ?? PropertyListingStatus.active)
+                .toString(),
+        'status': derivePropertyStatus(
+          verificationStatus: status,
+          listingStatus:
+              (property['listingStatus'] ?? PropertyListingStatus.active)
+                  .toString(),
+        ),
         'moderatedBy': moderator.uid,
         'moderatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       };
 
       if (status == 'rejected') {
@@ -126,5 +147,92 @@ class AdminService {
         });
       }
     });
+
+    await AppAnalyticsService.instance.logAdminPropertyModerated(
+      status: status,
+      propertyId: propertyId,
+    );
   }
+
+  Future<AdminDashboardMetrics> _fetchDashboardMetrics() async {
+    final totalUsersSnapshot = await _db.collection('users').count().get();
+    final totalBrokersSnapshot = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'broker')
+        .count()
+        .get();
+    final totalPropertiesSnapshot = await _db.collection('properties').count().get();
+    final pendingPropertiesSnapshot = await _db
+        .collection('properties')
+        .where('verificationStatus', isEqualTo: 'pending')
+        .count()
+        .get();
+    final approvedPropertiesSnapshot = await _db
+        .collection('properties')
+        .where('verificationStatus', isEqualTo: 'approved')
+        .count()
+        .get();
+    final rejectedPropertiesSnapshot = await _db
+        .collection('properties')
+        .where('verificationStatus', isEqualTo: 'rejected')
+        .count()
+        .get();
+    final totalLeadsSnapshot = await _db.collection('leads').count().get();
+    final totalOffersSnapshot = await _db.collection('offers').count().get();
+    final todaySnapshot = await _db.collection('admin_metrics_daily').doc(_todayKey).get();
+
+    final todayData = todaySnapshot.data() ?? <String, dynamic>{};
+    final rawEventCounters =
+        (todayData['eventCounters'] as Map<dynamic, dynamic>? ??
+                const <dynamic, dynamic>{})
+            .map((key, value) => MapEntry(key.toString(), (value as num).toInt()));
+
+    return AdminDashboardMetrics(
+      totalUsers: totalUsersSnapshot.count ?? 0,
+      totalBrokers: totalBrokersSnapshot.count ?? 0,
+      totalProperties: totalPropertiesSnapshot.count ?? 0,
+      pendingProperties: pendingPropertiesSnapshot.count ?? 0,
+      approvedProperties: approvedPropertiesSnapshot.count ?? 0,
+      rejectedProperties: rejectedPropertiesSnapshot.count ?? 0,
+      totalLeads: totalLeadsSnapshot.count ?? 0,
+      totalOffers: totalOffersSnapshot.count ?? 0,
+      eventCounters: rawEventCounters,
+      asOf: (todayData['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  String get _todayKey {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+}
+
+class AdminDashboardMetrics {
+  const AdminDashboardMetrics({
+    required this.totalUsers,
+    required this.totalBrokers,
+    required this.totalProperties,
+    required this.pendingProperties,
+    required this.approvedProperties,
+    required this.rejectedProperties,
+    required this.totalLeads,
+    required this.totalOffers,
+    required this.eventCounters,
+    required this.asOf,
+  });
+
+  final int totalUsers;
+  final int totalBrokers;
+  final int totalProperties;
+  final int pendingProperties;
+  final int approvedProperties;
+  final int rejectedProperties;
+  final int totalLeads;
+  final int totalOffers;
+  final Map<String, int> eventCounters;
+  final DateTime? asOf;
+
+  int counter(String key) => eventCounters[key] ?? 0;
 }

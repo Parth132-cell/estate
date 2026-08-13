@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:estatex_app/explore/property_listing_repository.dart';
 import 'package:estatex_app/property/property_card.dart';
-import 'package:estatex_app/property/property_card_skeleton.dart';
+import 'package:estatex_app/property/property_card_skeleton.dart'
+    hide PropertyCardSkeleton;
 import 'package:estatex_app/property/property_details_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -35,11 +36,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
   bool _priceFilterEnabled = false;
 
   PropertyFilter get _filter => PropertyFilter(
-        city: _cityController.text,
-        bhk: _selectedBhk,
-        minPrice: _priceFilterEnabled ? _priceRange.start.round() : null,
-        maxPrice: _priceFilterEnabled ? _priceRange.end.round() : null,
-      );
+    city: _cityController.text,
+    bhk: _selectedBhk,
+    minPrice: _priceFilterEnabled ? _priceRange.start.round() : null,
+    maxPrice: _priceFilterEnabled ? _priceRange.end.round() : null,
+  );
 
   @override
   void initState() {
@@ -194,7 +195,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 runSpacing: 8,
                 children: [
                   FilterChip(
-                    label: Text(_selectedBhk == null ? 'BHK' : '${_selectedBhk!} BHK'),
+                    label: Text(
+                      _selectedBhk == null ? 'BHK' : '${_selectedBhk!} BHK',
+                    ),
                     selected: _selectedBhk != null,
                     onSelected: (_) => _pickBhk(context),
                   ),
@@ -224,7 +227,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   children: [
                     Icon(Icons.wifi_off, size: 16, color: Colors.orange),
                     SizedBox(width: 8),
-                    Expanded(child: Text('Network is slow. Loading may take a little longer.')),
+                    Expanded(
+                      child: Text(
+                        'Network is slow. Loading may take a little longer.',
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -235,7 +242,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   children: [
                     Icon(Icons.history, size: 16, color: Colors.blueGrey),
                     SizedBox(width: 8),
-                    Expanded(child: Text('Showing cached results while refreshing.')),
+                    Expanded(
+                      child: Text('Showing cached results while refreshing.'),
+                    ),
                   ],
                 ),
               ),
@@ -270,7 +279,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     if (_listings.isEmpty) {
-      return const Center(child: Text('No results found. Try widening your filters.'));
+      return const Center(
+        child: Text('No results found. Try widening your filters.'),
+      );
     }
 
     return RefreshIndicator(
@@ -296,17 +307,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 propertyId: item.id,
                 imageUrl: item.imageUrls.isNotEmpty ? item.imageUrls.first : '',
                 price: '₹${item.price}',
+                rawPrice: item.price,
                 title: item.title,
                 location: item.city,
                 bhk: '${item.bhk} BHK',
                 verified: item.verified,
+                areaSqft: item.areaSqft,
+                propertyCategory: item.propertyCategory,
+                locality: item.locality,
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => PropertyDetailsScreen(
                         propertyId: item.id,
-                        imageUrl: item.imageUrls.isNotEmpty ? item.imageUrls.first : '',
+                        imageUrl: item.imageUrls.isNotEmpty
+                            ? item.imageUrls.first
+                            : '',
                         price: '₹${item.price}',
                         title: item.title,
                         location: item.city,
@@ -335,7 +352,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
             for (final value in [1, 2, 3, 4, 5])
               ListTile(
                 title: Text('$value BHK'),
-                trailing: _selectedBhk == value ? const Icon(Icons.check) : null,
+                trailing: _selectedBhk == value
+                    ? const Icon(Icons.check)
+                    : null,
                 onTap: () => Navigator.pop(context, value),
               ),
             ListTile(

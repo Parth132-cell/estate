@@ -35,10 +35,14 @@ class FraudDetectionService {
         .snapshots();
   }
 
-  Future<void> resolveAlert(String alertId) async {
+  /// [resolution] is optional — saved when admin provides a note.
+  /// Matches the call in AdminFraudScreen:
+  ///   resolveAlert(widget.doc.id, resolution: noteCtrl.text.trim())
+  Future<void> resolveAlert(String alertId, {String? resolution}) async {
     await _db.collection('fraud_alerts').doc(alertId).update({
       'status': 'resolved',
       'resolvedAt': FieldValue.serverTimestamp(),
+      if (resolution != null && resolution.isNotEmpty) 'resolution': resolution,
     });
   }
 }

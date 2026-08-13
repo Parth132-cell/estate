@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'agreement_pdf_stub.dart';
 import 'agreement_service.dart';
@@ -49,8 +51,11 @@ class _AgreementScreenState extends State<AgreementScreen> {
       appBar: AppBar(title: const Text('Buyer-Seller Agreement')),
       body: agreementId == null
           ? _buildCreateForm()
-          : FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              future: _service.getById(agreementId),
+          : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('agreements')
+                  .doc(agreementId)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -61,25 +66,67 @@ class _AgreementScreenState extends State<AgreementScreen> {
                     (data['status'] ?? widget.status ?? 'draft').toString();
                 final esignStatus =
                     (data['esignStatus'] ?? 'not_sent').toString();
+                final envelopeStatus =
+                    (data['envelopeStatus'] ?? 'not_started').toString();
                 final docBody =
                     (data['documentBody'] ?? 'No agreement body found').toString();
                 final pdfUrl = data['pdfUrl']?.toString();
+                final signedPdfUrl = data['signedPdfUrl']?.toString();
+                final signerRole = _service.currentSignerRole(data);
+                final signers =
+                    Map<String, dynamic>.from(data['signers'] as Map? ?? {});
+                final buyerSigner =
+                    Map<String, dynamic>.from(signers['buyer'] as Map? ?? {});
+                final sellerSigner =
+                    Map<String, dynamic>.from(signers['seller'] as Map? ?? {});
+                final canBuyerSign = signerRole == 'buyer' &&
+                    esignStatus == 'pending_buyer';
+                final canSellerSign = signerRole == 'seller' &&
+                    esignStatus == 'pending_seller';
 
                 return Padding(
                   padding: const EdgeInsets.all(16),
                   child: ListView(
                     children: [
-                      Text('Agreement Status: $agreementStatus'),
-                      const SizedBox(height: 8),
-                      Text('eSign Status: $esignStatus'),
-                      const SizedBox(height: 8),
+                      _InfoCard(
+                        title: 'Agreement Status',
+                        value: agreementStatus,
+                      ),
+                      const SizedBox(height: 10),
+                      _InfoCard(
+                        title: 'eSign Status',
+                        value: esignStatus,
+                      ),
+                      const SizedBox(height: 10),
+                      _InfoCard(
+                        title: 'Envelope Status',
+                        value: envelopeStatus,
+                      ),
+                      const SizedBox(height: 14),
+                      _SignerTile(
+                        title: 'Buyer Signer',
+                        data: buyerSigner,
+                      ),
+                      const SizedBox(height: 10),
+                      _SignerTile(
+                        title: 'Seller Signer',
+                        data: sellerSigner,
+                      ),
+                      const SizedBox(height: 18),
                       if (pdfUrl != null && pdfUrl.isNotEmpty)
                         Text(
-                          'PDF: uploaded',
+                          'Draft PDF stored',
                           style: TextStyle(color: Colors.green.shade700),
                         )
                       else
-                        const Text('PDF: not generated'),
+                        const Text('Draft PDF not generated'),
+                      if (signedPdfUrl != null && signedPdfUrl.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Signed PDF stored',
+                          style: TextStyle(color: Colors.green.shade700),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       ElevatedButton(
                         child: const Text('View Agreement Content'),
@@ -89,7 +136,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             MaterialPageRoute(
                               builder: (_) => AgreementPdfStub(
                                 documentBody: docBody,
-                                pdfUrl: pdfUrl,
+                                pdfUrl: signedPdfUrl?.isNotEmpty == true
+                                    ? signedPdfUrl
+                                    : pdfUrl,
                               ),
                             ),
                           );
@@ -101,6 +150,14 @@ class _AgreementScreenState extends State<AgreementScreen> {
                         onPressed: () => _runAction(
                           () => _service.generatePdfAndUpload(agreementId),
                           successMessage: 'PDF generated and uploaded',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        child: const Text('Refresh Signature Status'),
+                        onPressed: () => _runAction(
+                          () => _service.syncSignatureStatus(agreementId),
+                          successMessage: 'Agreement status synced',
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -122,7 +179,8 @@ class _AgreementScreenState extends State<AgreementScreen> {
                         ),
                         const SizedBox(height: 20),
                       ],
-                      if (esignStatus == 'not_sent')
+                      if (agreementStatus == 'accepted' &&
+                          esignStatus == 'not_sent')
                         OutlinedButton(
                           child: const Text('Send for Digital Signature'),
                           onPressed: () => _runAction(
@@ -130,22 +188,17 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             successMessage: 'Agreement sent for signature',
                           ),
                         ),
-                      if (esignStatus == 'pending_buyer')
-                        OutlinedButton(
-                          child: const Text('Mark Buyer Signed'),
-                          onPressed: () => _runAction(
-                            () => _service.markBuyerSigned(agreementId),
-                            successMessage: 'Buyer signature captured',
+                      if (canBuyerSign || canSellerSign) ...[
+                        const SizedBox(height: 10),
+                        ElevatedButton(
+                          child: Text(
+                            canBuyerSign
+                                ? 'Open Buyer Signing Session'
+                                : 'Open Seller Signing Session',
                           ),
+                          onPressed: () => _openSigningSession(agreementId),
                         ),
-                      if (esignStatus == 'pending_seller')
-                        OutlinedButton(
-                          child: const Text('Mark Seller Signed'),
-                          onPressed: () => _runAction(
-                            () => _service.markSellerSigned(agreementId),
-                            successMessage: 'Seller signature captured',
-                          ),
-                        ),
+                      ],
                     ],
                   ),
                 );
@@ -226,6 +279,27 @@ class _AgreementScreenState extends State<AgreementScreen> {
     }
   }
 
+  Future<void> _openSigningSession(String agreementId) async {
+    try {
+      final signingUrl = await _service.createSigningSession(agreementId);
+      final uri = Uri.parse(signingUrl);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open signing session')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open signing session: $e')),
+      );
+    }
+  }
+
   Future<void> _runAction(
     Future<dynamic> Function() action, {
     required String successMessage,
@@ -233,7 +307,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
     try {
       await action();
       if (!mounted) return;
-      setState(() {});
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));
@@ -243,5 +316,79 @@ class _AgreementScreenState extends State<AgreementScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
     }
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignerTile extends StatelessWidget {
+  const _SignerTile({
+    required this.title,
+    required this.data,
+  });
+
+  final String title;
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = (data['status'] ?? 'created').toString();
+    final email = data['email']?.toString();
+    final signedAt = data['signedAt']?.toString();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text((data['name'] ?? 'Signer').toString()),
+          if (email != null && email.isNotEmpty)
+            Text(email, style: const TextStyle(color: Colors.black54)),
+          const SizedBox(height: 6),
+          Text('Status: $status'),
+          if (signedAt != null && signedAt.isNotEmpty)
+            Text('Signed at: $signedAt'),
+        ],
+      ),
+    );
   }
 }

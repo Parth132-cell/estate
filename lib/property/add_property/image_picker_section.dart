@@ -2,14 +2,26 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+class PropertyImageSelection {
+  const PropertyImageSelection({
+    required this.existingImageUrls,
+    required this.newImages,
+  });
+
+  final List<String> existingImageUrls;
+  final List<File> newImages;
+}
+
 class ImagePickerSection extends StatefulWidget {
-  final Function(List<File>) onChanged;
+  final ValueChanged<PropertyImageSelection> onChanged;
   final int maxImages;
+  final List<String> initialImageUrls;
 
   const ImagePickerSection({
     super.key,
     required this.onChanged,
     this.maxImages = 10,
+    this.initialImageUrls = const <String>[],
   });
 
   @override
@@ -19,6 +31,18 @@ class ImagePickerSection extends StatefulWidget {
 class _ImagePickerSectionState extends State<ImagePickerSection> {
   final ImagePicker _picker = ImagePicker();
   final List<File> _images = [];
+  late final List<String> _existingImageUrls = [...widget.initialImageUrls];
+
+  int get _totalImageCount => _existingImageUrls.length + _images.length;
+
+  void _emitChange() {
+    widget.onChanged(
+      PropertyImageSelection(
+        existingImageUrls: List<String>.unmodifiable(_existingImageUrls),
+        newImages: List<File>.unmodifiable(_images),
+      ),
+    );
+  }
 
   Future<void> _pickImages() async {
     try {
@@ -26,26 +50,33 @@ class _ImagePickerSectionState extends State<ImagePickerSection> {
 
       if (pickedFiles.isEmpty) return;
 
-      final availableSlots = widget.maxImages - _images.length;
+      final availableSlots = widget.maxImages - _totalImageCount;
       if (availableSlots <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('You can upload up to ${widget.maxImages} images')),
+          SnackBar(
+            content: Text('You can upload up to ${widget.maxImages} images'),
+          ),
         );
         return;
       }
 
-      final selected = pickedFiles.take(availableSlots).map((x) => File(x.path)).toList();
+      final selected = pickedFiles
+          .take(availableSlots)
+          .map((x) => File(x.path))
+          .toList();
 
       setState(() {
         _images.addAll(selected);
       });
 
-      widget.onChanged(_images);
+      _emitChange();
 
       if (pickedFiles.length > selected.length) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Only ${widget.maxImages} images are allowed per listing'),
+            content: Text(
+              'Only ${widget.maxImages} images are allowed per listing',
+            ),
           ),
         );
       }
@@ -60,7 +91,14 @@ class _ImagePickerSectionState extends State<ImagePickerSection> {
     setState(() {
       _images.removeAt(index);
     });
-    widget.onChanged(_images);
+    _emitChange();
+  }
+
+  void _removeExistingImage(int index) {
+    setState(() {
+      _existingImageUrls.removeAt(index);
+    });
+    _emitChange();
   }
 
   @override
@@ -83,7 +121,47 @@ class _ImagePickerSectionState extends State<ImagePickerSection> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            // Existing images
+            ..._existingImageUrls.asMap().entries.map((entry) {
+              final index = entry.key;
+              final imageUrl = entry.value;
+
+              return Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      width: 90,
+                      height: 90,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 90,
+                        height: 90,
+                        color: Colors.grey.shade200,
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.cancel,
+                        size: 20,
+                        color: Colors.red,
+                      ),
+                      onPressed: () => _removeExistingImage(index),
+                    ),
+                  ),
+                ],
+              );
+            }),
+
             ..._images.asMap().entries.map((entry) {
               final index = entry.key;
               final file = entry.value;
@@ -116,18 +194,19 @@ class _ImagePickerSectionState extends State<ImagePickerSection> {
             }),
 
             // Add button
-            GestureDetector(
-              onTap: _pickImages,
-              child: Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey),
+            if (_totalImageCount < widget.maxImages)
+              GestureDetector(
+                onTap: _pickImages,
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: const Icon(Icons.add, size: 30, color: Colors.grey),
                 ),
-                child: const Icon(Icons.add, size: 30, color: Colors.grey),
               ),
-            ),
           ],
         ),
       ],
